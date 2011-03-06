@@ -1,18 +1,26 @@
+; This file contains routines that PROGRAMMER needs to interpret the
+; "gramar" file directly.  See the file "macros" for equivalent
+; functions used when using a compiled version of the grammar.
+;
+; The functions in this file do not work correctly, and it appears
+; unlikely that they will in the near future.  Common LISP does not
+; allow a "computed goto" which the ":" function relies heavily on.
+; Fortunately the compiled version of the grammar works fine.
+;
+; 	Keldon (09/15/1999)
 
-
-(DEFUN PDEFINE FEXPR (A) 
+(DEFUN-FEXPR PDEFINE (A) 
        ;;THIS PDEFINE MERELY PUT THE PROGRAMMAR FUNCTION ON THE
        ;;PROPERTY LIST OF THE PARSE NAME UNDER THE INDICATOR
        ;;'INTERPRET. IT ALSO ADDS THE TAGS FAIL AND RETURN. NOTE THAT
        ;;THE PDEFINE BODY IS SIMILIAR TO PROG BODY. THIS SETS UP
        ;;INTERPRETED PROGRAMMAR EXECUTIONS
-       (PUTPROP (CAR A)
-		(NCONC (CDR A)
+       (SETF (GET (CAR A) 'INTERPRET)
+		(APPEND '(PROG) (CDR A)
 		       (LIST 'FAIL
 			     '(RETURN 'FAIL)
 			     'RETURN
-			     '(RETURN 'RETURN)))
-		'INTERPRET)) 
+			     '(RETURN 'RETURN)))))
 
 (DEFUN INTERPRET (UNIT) 
        ;; INTERPRET IS THE FUNCTION WHICH 'CALLS' AN INTERPRETED
@@ -30,8 +38,7 @@
 				(SETQ H RE)			       ;DAUGHTERS OF THIS NODE
 				NIL))				       ;SEMANTIC JAZZ
 	     (SETR 'PARENT PARENT C)				       ;SET PARENT REGISTER
-	     (COND ((EQ (APPLY 'PROG
-			       (GET UNIT 'INTERPRET))
+	     (COND ((EQ (EVAL (GET UNIT 'INTERPRET))
 			'RETURN)
 		    (GO RETURN)))				       ;APPLY THE PROGRAMMAR PROGRAM
 	FAIL (SETQ MES ME)
@@ -41,7 +48,7 @@
 	     (SETQ MES ME)
 	     (RETURN (REBUILD (REVERSE FE) NB N H SM C)))) 
 
-(DEFUN : FEXPR (BRANCH) 
+(DEFUN-FEXPR : (&REST BRANCH) 
        (COND ((EVAL (CAR BRANCH))				       ;EVALUATE BRANCH CONDITION
 	      (COND ((AND (NULL NN) (CDDDR BRANCH))
 		     (GOCHECK (CDDR BRANCH)))			       ;IF TRUE AND NO MORE SENTENCE REMAINS
@@ -60,8 +67,7 @@
 	     ((ATOM (CADR LABEL)) (GO (CADR LABEL)))
 	     (T (M (CADR LABEL)) (GO FAIL)))) 
 
-(DEFUN GOCOND FEXPR (A) 
+(DEFUN-FEXPR GOCOND (A) 
        ;;GOCOND GOES TO THE 1ST OR 2ND OF TWO TAGS DEPENDING IF THERE
        ;;REMAINS ANY MORE OF THE SENTENCE YET TO BE PARSED
        (COND (NN (GO (CAR A))) (T (GO (CADR A))))) 
-

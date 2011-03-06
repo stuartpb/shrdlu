@@ -1,47 +1,46 @@
+; This file contains routines needed to process the compiled version of
+; the "gramar" file (called "cgram").  Also see the "ginter" file for a
+; version of these routines to use an interpreted version.
+;
+; When you change the "gramar" file, you *must* recompile it using the
+; "gram-comp" function below.  It takes as an argument the name of the
+; grammar file to compile.  Once you have compiled the grammar, reload
+; the "cgram" file.
+;
+; Note that this file now stands alone, and is not loaded by the normal
+; "loader" file.  Once the grammar has been compiled, this file is no
+; longer needed.
+;
+;	Keldon (09/25/1999)
 
-################################################################
+(load "fixes")
 
-		.MACR 21
-
-   a precompiler for programmer code
-################################################################
-
-
-(DEFUN LIST-NO-NILS FEXPR (ELEMENTS) 
-       (DO ((TAKEUP-REEL)
-	    (TEMP NIL (EVAL (CAR ELEMENTS)))
-	    (ELEMENTS ELEMENTS (CDR ELEMENTS)))
-	   ((NULL ELEMENTS) (REVERSE TAKEUP-REEL))
-	   (AND TEMP (SETQ TAKEUP-REEL (CONS TEMP TAKEUP-REEL))))) 
-
-(DEFUN TOPLEVEL-LIST FEXPR (ELEMENTS) 
+(DEFUN TOPLEVEL-LIST (&REST ELEMENTS)
        ;;ACTS LIKE LIST EXCEPT THAT IF ANY ELEMEMNT EVALUATES IN TO
        ;;MORE THAN A SINGLE ELEMENT ( - RETURNS A LIST WHOSE CAR IS
        ;;ALSO A LIST - ) THEN THE ELEMENTS OF THAT ELEMENT ARE ADDED
        ;;TO THE SAME LEVEL AS THE SEPARATE ELEMENTS IN THE CALL
-       (MAPCAN '(LAMBDA (ELEMENT) (SETQ ELEMENT (EVAL ELEMENT))
-				  (COND ((ATOM (CAR ELEMENT))
-					 (LIST ELEMENT))
-					(T ELEMENT)))
-	       ELEMENTS)) 
+       (MAPCAN #'(LAMBDA (ELEMENT)
+                                  (COND ((ATOM ELEMENT) (LIST ELEMENT))
+					((ATOM (CAR ELEMENT))
+                                         (LIST ELEMENT))
+                                        (T ELEMENT)))
+               ELEMENTS))
 
 (DEFUN GRAM-COMP (FILE) 
-       (PROG (^Q UNIQUE ^R ^D) 
-	     (OR (APPLY 'UREAD FILE)
-		 (RETURN 'BAD-FILE-SPECS))
-	     (IOC Q)
-	     (SETQ UNIQUE (GENSYM))
-	     (APPLY 'UWRITE (STATUS CRUNIT))
-	     (DO ((R (READ UNIQUE) (READ UNIQUE)))
-		 ((EQ R UNIQUE))
-		 (COND ((MEMQ (CAR R) '(DEFUN SETQ DEFPROP)))
-		       (T (SETQ R (EVAL R))))
-		 ((LAMBDA (^R) (SPRINTER R)) T)))
-       'REMEMBER/ TO/ UFILE) 
+       (PROG (UNIQUE FFF OUT) 
+             (SETQ FFF (OPEN FILE))
+	     (SETQ OUT (OPEN "cgram" :DIRECTION :OUTPUT))
+	     (DO ((R (READ FFF NIL 'EOF-VALUE) (READ FFF NIL 'EOF-VALUE)))
+		 ((EQ R 'EOF-VALUE))
+		 (WRITE (COND ((EQ (CAR R) 'PDEFINE) (EVAL R))
+		              (T R)) :STREAM OUT))
+	     (CLOSE FFF)
+	     (CLOSE OUT)))
 
-(DEFUN PDEFINE FEXPR (MOBY) 
-       (LIST 'DEFUN
-	     (CAR MOBY)
+(DEFMACRO PDEFINE (&REST MOBY) 
+   `(LIST 'DEFUN
+	     (CAR ',MOBY)
 	     'NIL
 	     (APPEND (LIST 'PROG
 			   (APPEND '(FE H
@@ -54,8 +53,11 @@
 					T1
 					T2
 					T3
-					:RESULT)
-				   (CADR MOBY))
+					RESULT)
+				   (CADR ',MOBY))
+			   (LIST 'DECLARE (APPEND (LIST 'SPECIAL)
+			                          '(ME FE C CUT SM NN NB H)
+						  (CADR ',MOBY)))
 			   '(SETQ NN T)
 			   '(SETQ CUT END)
 			   '(SETQ C
@@ -65,7 +67,7 @@
 					     (SETQ H RE)
 					     NIL))
 			   '(SETR 'PARENT PARENT C))
-		     (APPLY ':-SPREAD (CDDR MOBY))
+		     (APPLY #'SPREAD (CDDR ',MOBY))
 		     (LIST 'FAIL
 			   '(SETQ MES ME)
 			   '(SETQ N (OR (N RE) NB))
@@ -79,9 +81,9 @@
 					     SM
 					     C)))))) 
 
-(DEFUN :-SPREAD FEXPR (LIST) 
+(DEFUN SPREAD (&REST CODE) 
        (MAPCAN 
-	'(LAMBDA (EXP) 
+	#'(LAMBDA (EXP) 
 	  (PROG (PREDICATE T1 T2 T3) 
 		(COND
 		 ((ATOM EXP)
@@ -107,14 +109,14 @@
 		  (AND (CDDDDR EXP) (SETQ T3 (CAR (CDDDDR EXP))))
 		  (RETURN
 		   (LIST
-		    (LIST 'SETQ ':RESULT PREDICATE)
+		    (LIST 'SETQ 'RESULT PREDICATE)
 		    (COND
 		     ((AND T1 (NULL T2))
 		      ;;T3 CAN BE EITHER THERE OR NOT
 		      (LIST
 		       'COND
 		       (TOPLEVEL-LIST
-			':RESULT
+			'RESULT
 			(COND
 			 (T3 (LIST 'COND
 				   (TOPLEVEL-LIST (LIST 'NULL
@@ -126,12 +128,12 @@
 		     ((AND (NULL T1) T2 (NULL T3))
 		      (LIST 'COND
 			    (TOPLEVEL-LIST (LIST 'NULL
-						 ':RESULT)
+						 'RESULT)
 					   (TAG-CHECK T2))))
 		     ((AND (NULL T1) T2 T3)
 		      (LIST
 		       'COND
-		       (LIST (LIST 'NULL ':RESULT)
+		       (LIST (LIST 'NULL 'RESULT)
 			     (LIST 'COND
 				   (TOPLEVEL-LIST (LIST 'NULL
 							'NN)
@@ -140,13 +142,13 @@
 						  (TAG-CHECK T2))))))
 		     ((AND T1 T2 (NULL T3))
 		      (LIST 'COND
-			    (TOPLEVEL-LIST ':RESULT
+			    (TOPLEVEL-LIST 'RESULT
 					   (TAG-CHECK T1))
 			    (TOPLEVEL-LIST 'T (TAG-CHECK T2))))
 		     ((AND T1 T2 T3)
 		      (LIST
 		       'COND
-		       (LIST ':RESULT
+		       (LIST 'RESULT
 			     (LIST 'COND
 				   (TOPLEVEL-LIST (LIST 'NULL
 							'NN)
@@ -159,15 +161,14 @@
 			    (TOPLEVEL-LIST (LIST 'AND
 						 (LIST 'NULL
 						       'NN)
-						 ':RESULT)
+						 'RESULT)
 					   (TAG-CHECK T3))))
 		     ((AND (NULL T1) (NULL T2) (NULL T3))
 		      (LIST 'I-AM-A-TAG))))))
 		 (T (RETURN (LIST EXP))))))
-	LIST)) 
+	CODE)) 
 
 (DEFUN TAG-CHECK (TAG-EXP) 
        (COND ((ATOM TAG-EXP) (LIST (LIST 'GO TAG-EXP)))
-	     (T (LIST (LIST 'M (CAR TAG-EXP))
+	     (T (LIST (LIST 'M (LIST 'QUOTE (CAR TAG-EXP)))
 		      (LIST 'GO 'FAIL))))) 
-

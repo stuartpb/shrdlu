@@ -1,5 +1,3 @@
-(declare (genprefix newans))
-
 ;;;################################################################
 ;;;
 ;;;         NEWANS - (new) Answering component
@@ -13,6 +11,7 @@
        ;;RESULTS OF ANY INPUT SENTENCE, WHETHER COMMAND, QUESTION, OR
        ;;STATEMENT.
        (PROG (ANSLIST AMBIG) 					       ;ANSLIST IS THE LIST OF POSSIBLE ANSWERS. AMBIG
+             (DECLARE (SPECIAL AMBIG))
 	     (SETQ ANSNAME NIL)					       ;IS A FLAG SET IF THERE IS A POSSIBLE AMBIGUITY 
 	     (SETQ AMBIG (CDR (SM NODE)))			       ;CLEAR OUT ANSWER NAMES SAVED FOR
 	     (SETQ ANSLIST					       ;BACKREF(ERENCE) ..I.E. MORE THAN ONE RSS FOR
@@ -28,7 +27,7 @@
 TEST-LOOP
 	     (AND ANS-AFTERFORMULATION-PAUSE  (ERT ANSWER HAS BEEN DETERMINED))
 	     (EVLIS (ACTION? (CAR ANSLIST)))			       ;THE ACTION INCLUDES BOTH THE THINGS TO BE DONE
-	     (PRINC '/.)					       ;AND THE INSTRUCTIONS FOR PRINTING A RESPONSE.
+	     (PRINC '\.)					       ;AND THE INSTRUCTIONS FOR PRINTING A RESPONSE.
 	     (TERPRI)
 (AND ANS-TEST? (GO TEST-LOOP))
 	     (DOBACKREF (CAR ANSLIST))				       ;DOBACKREF STORES AWAY DISCOURSE INFORMATION
@@ -61,6 +60,7 @@ TEST-LOOP
 ;;;############################################################
 
 (DEFUN ANSBUILD (PLAUS ACTION REDEDUCE) 
+       (DECLARE (SPECIAL PLAUS ACTION REDEDUCE))
 
        ;;BUILDS AN ANSWER NODE.  IF REDEDUCE IS NON-NIL, IT ADDS A
        ;;REDEDUCTION OF THE ANSWER, ADDING THE DISCOURSE JUNK TO THE
@@ -83,17 +83,20 @@ TEST-LOOP
 			    (T ACTION))
 		      (AND (REL? RSS)
 			   (NOT (CQ DECLAR))
-			   (LIST (LIST 'PUTPROP
+			   (LIST (LIST 'SETF
+			            (LIST 'GET
 				       (QUOTIFY (REL? RSS))
-				       (QUOTIFY ANS)
-				       (QUOTIFY 'REFER=)))))))
+				       (QUOTIFY 'REFER=))
+				    (QUOTIFY ANS)))))))
 
 (DEFUN ANSCOMMAND (RSS) 
+       (DECLARE (SPECIAL RSS))
 
        ;;ANSCOMMAND RESPONDS TO IMPERATIVES.
        (PROG (EXP ANS SUCCESS PLAN PLAN2) 
+	     (DECLARE (SPECIAL SUCCESS PLAN PLAN2))
 	     (SETQ EXP (PLNR-ANDORIFY RSS))			       ;PLNR-ANDORIFY COMBINES ANDS AND ORS INTO
-	     (PUTPROP RSS EXP 'PLNRCODE=)			       ;APPROPRIATE PLANNER THANDS AND THORS.
+	     (SETF (GET RSS 'PLNRCODE=) EXP)			       ;APPROPRIATE PLANNER THANDS AND THORS.
 	     (SETQ EXP (AMBPUT EXP))
 	     (SETQ EXP (COND ((EQ (CAR EXP) 'THAND)
 			      (APPEND EXP
@@ -108,11 +111,11 @@ TEST-LOOP
 			   (T EXP)))				       ;USES FAILURE TO WIPE OUT THE EFFECTS OF TRYING
 	     (RETURN						       ;OUT ONE OF					
 	      (ANSBUILD (COND (SUCCESS (PLAUSIBILITY? RSS))	       ;			       ;THEM. BEFORE
-			      (T (DIFFERENCE (PLAUSIBILITY? RSS)       ;FAILING IT MARKS DOWN WHETHER IT SUCCEEDED AND
+			      (T (- (PLAUSIBILITY? RSS)                ;FAILING IT MARKS DOWN WHETHER IT SUCCEEDED AND
 					     512.)))		       ;SAVES THE PLAN FROM BACKTRACKING. PLNR-JUNKIFY
 			(COND (SUCCESS (APPEND (REVERSE PLAN2)	       ;PUTS ON THE JUNK FOR SAVING THE DISCOURSE
 					       '((SAY OK))))	       ;REFERENTS ETC. THE THIRD ARGUMENT TO ANSBUILD
-			      (T '((SAY I CAN/'T))))		       ;CAUSES THE SYSTEM TO GO BACK THROUGH THE
+			      (T '((SAY I CAN\'T))))		       ;CAUSES THE SYSTEM TO GO BACK THROUGH THE
 			T))))					       ;DEDUCTION TO GET THE DATA BASE STRAIGHT IF THIS
 								       ;ANSWER IS PICKED.  IT ALSO TAKES CARE OF THE
 								       ;BACKREF STUFF.
@@ -122,17 +125,18 @@ TEST-LOOP
 ;;;############################################################
 
 (DEFUN ANSDECLARE (RSS) 
+       (DECLARE (SPECIAL RSS))
 
        ;;FOR DECLARATIVES.
        (COND
 	((OR? RSS)
-	 (GLOBAL-ERR I DON/'T UNDERSTAND DISJUNCTIVE DECLARATIVES))
+	 (GLOBAL-ERR I DON\'T UNDERSTAND DISJUNCTIVE DECLARATIVES))
 	((AND? RSS)
 	 (PROG (ANS) 
 	       (SETQ ANS (MAPCAR 'ANSDECLARE (AND? RSS)))	       ;CONJOINED DECLARATIVES ARE HANDLED BY DOING
 	       (RETURN
 		(ANSBUILD
-		 (APPLY 'PLUS					       ;EACH ONE SEPARATELY.
+		 (APPLY '+					       ;EACH ONE SEPARATELY.
 			(MAPCAR 'PLAUSIBILITY? ANS))
 		 (CONS '(SAY I UNDERSTAND)
 		       (MAPCAN '(LAMBDA (X) 
@@ -144,7 +148,7 @@ TEST-LOOP
 	 (GLOBAL-ERR I ONLY UNDERSTAND PRESENT TENSE DECLARATIVES))
 	(T (ANSBUILD (PLAUSIBILITY? RSS)
 		     (CONS '(SAY I UNDERSTAND)
-			   (MAPCAR '(LAMBDA (X) 
+			   (MAPCAR #'(LAMBDA (X) 
 					    (LIST 'THADD
 						  (QUOTIFY (ANSTHM X))
 						  NIL))
@@ -165,7 +169,7 @@ TEST-LOOP
 		 (BUG ANSELIMINATE -- NO AMBIGUITIES LIST))
 	UP   (SETQ POSSIBILITIES (LIST (CAR AMB)))		       ;POSSIBILITIES IS THE LIST OF POSSIBLE
 	     (MAPC 						       ;INTERPRETATIONS FOR A SINGLE AMBIGUITY.  WE ARE
-	      '(LAMBDA (ANS) 					       ;INSIDE A LOOP STARTING AT UP WHICH GOES THROUGH
+	      #'(LAMBDA (ANS) 					       ;INSIDE A LOOP STARTING AT UP WHICH GOES THROUGH
 		(AND (SETQ XX					       ;ALL THE DIFFERENT POSSIBLE AMBIGUITIES ON THE
 			   (PARSE-ASSOC (CAAR AMB)		       ;LIST FOR THE FIRST ANSWER ON ANSLIST.
 					(AMBIGUITIES? (ANSRSS? ANS))))
@@ -176,33 +180,33 @@ TEST-LOOP
 		   ((SETQ AMB (CDR AMB)) (GO UP))
 		   (T (BUG ANSELIMINATE -- NO CONFLICT)))
 	     (TERPRI)
-	     (SAY I/'M NOT SURE WHAT YOU MEAN BY ")
+	     (SAY I\'M NOT SURE WHAT YOU MEAN BY \")
 	     (MAPC 'PRINT2
 		   (FROM (NB (CADDAR AMB)) (N (CADDAR AMB))))
-	     (SAY " IN THE PHRASE ")
+	     (SAY \" IN THE PHRASE \")
 	     (MAPC 'PRINT2
 		   (FROM (NB (SETQ XX (PARENT? (CADDAR AMB))))
 			 (N XX)))
-	     (PRINC '"/.)
+	     (PRINC '\"\.)
 	     (TERPRI)
-	     (SAY DO YOU MEAN:)
+	     (SAY DO YOU MEAN\:)
 	     (SETQ XX 0.)
-	     (MAPC '(LAMBDA (POSS) (PRINT (SETQ XX (ADD1 XX)))
+	     (MAPC #'(LAMBDA (POSS) (PRINT (SETQ XX (+ 1 XX)))
 				   (MAPC 'PRINT2 (CADR POSS)))	       ;THE PARAPHRASE
 		   POSSIBILITIES)
 	     (PRINC '?)
 	     (TERPRI)
 	READ (SETQ XX (READ))
 	     (COND ((OR (NOT (NUMBERP XX))
-			(GREATERP XX (LENGTH POSSIBILITIES)))
+			(> XX (LENGTH POSSIBILITIES)))
 		    (TERPRI)
 		    (SAY PLEASE TYPE ONE OF THE NUMBERS)
 		    (TERPRI)
 		    (GO READ)))
-	     (SETQ POSSIBILITIES (NTH XX POSSIBILITIES))
+	     (SETQ POSSIBILITIES (SHRDLU-NTH XX POSSIBILITIES))
 	     (RETURN
 	      (MAPBLAND
-	       '(LAMBDA (ANS) 
+	       #'(LAMBDA (ANS) 
 		 (COND
 		  ((OR
 		    (NOT
@@ -240,10 +244,9 @@ TEST-LOOP
 	      (ANSCOMMAND RSS))
 	     ((CQ DECLAR)
 	      (PROG (X) 
-		    (RETURN (COND ((ERRSET (SETQ X (ANSDECLARE RSS)))
-				   X)
+		    (RETURN (COND ((SETQ X (ANSDECLARE RSS)))
 				  ((EQUAL GLOBAL-MESSAGE
-					  '(THAT ISN/'T
+					  '(THAT ISN\'T
 						 THE
 						 KIND
 						 OF
@@ -292,11 +295,14 @@ TEST-LOOP
        ;;; 	WE WANT C TO BE NIL TO STOP THE NG PROGRAM FROM 
        ;;;	CRAWLING OVER THE PARSE TREE.
        ;;;
-       (PROG (ANSNODE C N CUT) 
+       (PROG (ANSNODE C N CUT SM-TIME MP-TIME) 
+             (DECLARE (SPECIAL C N CUT SM-TIME MP-TIME))
+	     (SETQ SM-TIME 0)
+	     (SETQ MP-TIME 0)
 	     (SETQ N (CDAAR PHRASE))				       ; CDR IS TO REMOVE "SAY"
 	     (SETQ ANSNODE (PARSE2 '(NG ANSNAME) T))		       ; THE T SAYS NOT TO ATTACH THIS TO THE TREE
 	     (OR ANSNODE
-		 (RETURN (ERT ANSNAME:
+		 (RETURN (ERT ANSNAME\:
 			      FAILURE
 			      TO
 			      PARSE
@@ -312,7 +318,7 @@ TEST-LOOP
 			      TO
 			      BE
 			      AN
-			      ADJ,
+			      ADJ\,
 			      PROCEED
 			      THIS
 			      AND
@@ -320,9 +326,8 @@ TEST-LOOP
 			      'T
 			      WORRY)))
 	     (SETQ ANSNAME (APPEND ANSNODE ANSNAME))		       ; LEAVE NODE AROUND IT ACCESSABLE PLACE
-	     (PUTPROP (CAR (SM ANSNODE))
-		      (CADR PHRASE)
-		      'REFER=)))				       ; PUT THE REFERENT ON AS THE GUY GIVEN BY ANSWER
+	     (SETF (GET (CAR (SM ANSNODE)) 'REFER=)
+		      (CADR PHRASE))))				       ; PUT THE REFERENT ON AS THE GUY GIVEN BY ANSWER
 
 
 
@@ -333,12 +338,13 @@ TEST-LOOP
        ;;FOR QUESTIONS WITH NO RELATIVE, LIKE "DID YOU PICK UP THE
        ;;BLOCK?"  OR "WHY DID YOU DO THAT?"
        (PROG (ANS TYPE CODE NODE VAR) 
+             (DECLARE (SPECIAL NODE))
 	     (SETQ NODE (PARSENODE? RSS))
 	     (SETQ TYPE (COND ((ISQ NODE POLAR) 'POLAR)		       ;THE TYPE SHOULD BE POLAR, WHY, WHERE, WHEN, OR
 			      ((SETQ TYPE (GETR 'QADJ NODE))
 			       (CAR (NB TYPE)))			       ;HOW.
 			      ((BUG ANSNOREL -- FUNNY TYPE))))
-	     (PUTPROP (VARIABLE? RSS) T 'USED)
+	     (SETF (GET (VARIABLE? RSS) 'USED) T)
 	     (SETQ CODE
 		   (PLNR-DESCRIBE (RELATIONS? RSS)
 				  (COND ((ISTENSE NODE
@@ -346,15 +352,15 @@ TEST-LOOP
 					 NIL)			       ;IN PRESENT TENSE CASES, WE DON'T LOOK FOR
 					((SETQ VAR (VARIABLE? RSS))))  ;EVENTS. OTHERWISE WE LOOK FOR A SET OF
 				  (LIST (VARIABLE? RSS))))	       ;APPROPRIATE EVENTS NO MATTER WHAT THE TYPE.
-	     (PUTPROP RSS CODE 'PLNRCODE=)
+	     (SETF (GET RSS 'PLNRCODE=) CODE)
 	     (RETURN
 	      (COND
 	       ((NOT VAR)
 		(SETQ ANS (THVAL-MULT (AMBPUT CODE)))
-		(ANSBUILD (PLUS (CAR ANS) (PLAUSIBILITY? RSS))
+		(ANSBUILD (+ (CAR ANS) (PLAUSIBILITY? RSS))
 			  (COND ((CADR ANS) '((SAY YES)))
 				((ISTENSE NODE 'MODAL)
-				 '((SAY I DON/'T KNOW)))
+				 '((SAY I DON\'T KNOW)))
 				(T '((SAY NO))))
 			  T))
 	       ((SETQ ANS (THVAL-MULT (PLNR-FINDIFY 'ALL
@@ -363,10 +369,10 @@ TEST-LOOP
 						    (AMBPUT CODE))))
 		(ANSBUILD
 		 (COND ((CADR ANS)
-			(PLUS (PLAUSIBILITY? RSS) (CAR ANS)))	       ;AN ANSWER IS VERY IMPLAUSIBILE IF IT MENTIONS
-		       (T (DIFFERENCE (PLAUSIBILITY? RSS) 512.)))      ;AN EVENT THE SYSTEM CAN'T FIND.
+			(+ (PLAUSIBILITY? RSS) (CAR ANS)))	       ;AN ANSWER IS VERY IMPLAUSIBILE IF IT MENTIONS
+		       (T (- (PLAUSIBILITY? RSS) 512.)))               ;AN EVENT THE SYSTEM CAN'T FIND.
 		 (COND ((NULL (CADR ANS))
-			'((SAY I CAN/'TDISCUSSA NON-EXISTENT EVENT)))
+			'((SAY I CAN\'T DISCUSS A NON-EXISTENT EVENT)))
 		       ((APPEND (AND (EQ TYPE 'POLAR)
 				     '((SAY YES)))
 				(LIST (LIST 'EVLIS
@@ -385,8 +391,8 @@ TEST-LOOP
        (PROG (X Y) 
 	GO   (SETQ X LIST)
 	UP   (COND ((NULL (CDR X)) (RETURN LIST))
-		   ((LESSP (PLAUSIBILITY? (CAR X))
-			   (PLAUSIBILITY? (CADR X)))
+		   ((< (PLAUSIBILITY? (CAR X))
+		       (PLAUSIBILITY? (CADR X)))
 		    (SETQ Y (CAR X))
 		    (RPLACA X (CADR X))
 		    (RPLACA (CDR X) Y)
@@ -398,6 +404,7 @@ TEST-LOOP
 ;;;############################################################
 
 (DEFUN ANSQUEST (RSS) 
+       (DECLARE (SPECIAL RSS))
 
        ;;ANSQUEST ANSWERS ALL TYPES OF QUESTIONS BY SENDING THEM OUT
        ;;TO ANSREL OR ANSNOREL DEPENDING ON WHETHER THERE IS A REL.
@@ -408,11 +415,11 @@ TEST-LOOP
 				 (OR (AND? RSS) (OR? RSS))))
 	       (RETURN
 		(ANSBUILD
-		 (APPLY 'PLUS
+		 (APPLY '+
 			(MAPCAR 'PLAUSIBILITY? ANS))
 		 (APPEND
 		  (AND (NOT (ISQ (PARSENODE? RSS) COMPONENT))
-		       '((SAY YOU/'RE TRYING TO CONFUSE ME/.)))
+		       '((SAY YOU\'RE TRYING TO CONFUSE ME\.)))
 		  (MAPCAN 
 		   '(LAMBDA (QUEST) 
 		     (APPEND
@@ -433,9 +440,11 @@ TEST-LOOP
 ;;;############################################################
 
 (DEFUN ANSREL (RSS) 
+       (DECLARE (SPECIAL RSS))
 
        ;;ANSREL HANDLES ALL QUESTIONS WITH A RELATIVE NG OF ANY TYPE
        (PROG (TYPE REL CODE PLAUS ANS PHRASE LENGTH NUM) 
+             (DECLARE (SPECIAL ANS))
 	     (OR (SETQ REL (REL? RSS)) (BUG ANSREL -- NO REL))
 	     (SETQ PHRASE (CONS 'NIL
 				(HEADPART (PARSENODE? REL))))	       ;THIS IS FOR THE PART OF THE GENERATOR THAT WILL
@@ -443,9 +452,8 @@ TEST-LOOP
 			    (QUANTIFIER? REL)
 			    (BUG ANSREL -- NO TYPE)))		       ;NIL IS TO MAKE THIS PHRASE COMPATIBLE WITH THE
 	     (AND (EQ TYPE 'ALL)
-		  (PUTPROP RSS T 'NEGATIVE=))			       ;"SAY" PHRASES WHICH THE OTHER PARTS GENERATE.
-	     (PUTPROP						       ;UNIVERSALS ARE CONVERTED TO NOT THERE EXISTS
-	      RSS						       ;NOT.
+		  (SETF (GET RSS 'NEGATIVE=) T))		       ;"SAY" PHRASES WHICH THE OTHER PARTS GENERATE.
+	     (SETF (GET RSS 'PLNRCODE=)				       ;UNIVERSALS ARE CONVERTED TO NOT THERE EXISTS NOT.
 	      (SETQ 
 	       CODE
 	       (PLNR-FINDIFY 'ALL
@@ -454,27 +462,26 @@ TEST-LOOP
 			     (PLNR-DESCRIBE (CONS RSS
 						  (RELATIONS? REL))
 					    (VARIABLE? REL)
-					    (LIST (VARIABLE? REL)))))
-	      'PLNRCODE=)					       ;CONSING THE RSS ONTO THE THINGS TO BE DESCRIBED
+					    (LIST (VARIABLE? REL))))))
 	     (SETQ ANS (THVAL-MULT (AMBPUT CODE)))		       ;HAS THE EFFECT OF PUTTING THE RELATION INTO THE
 	     (SETQ PLAUS (CAR ANS))				       ;DESCRIPTION OF THE OBJECT. DISAMB PUTS IN THE
 	     (SETQ LENGTH (LENGTH (SETQ ANS (CADR ANS))))	       ;JUNK IF THERE IS NO AMBIGUIT, AVOIDING HAVING
 	     (RETURN						       ;TO GOTHROUGH THE EVALUATION A SECOND TIME.
 	      (COND						       ;THVAL-MULT RETURNS A LIST  OF A PLAUSIBILITY
 	       ((EQ TYPE 'ALL)					       ;AND AN ANSWER.
-		(ANSBUILD (PLUS PLAUS (PLAUSIBILITY? RSS))
+		(ANSBUILD (+ PLAUS (PLAUSIBILITY? RSS))
 			  (COND ((NULL ANS) '((SAY YES)))
-				((CONS '(SAY NO, NOT)
+				((CONS '(SAY NO\, NOT)
 				       (PREPPUT (NAMELIST PHRASE
 							  'INDEF
 							  ANS)))))
 			  T))
 	       ((EQ TYPE 'HOWMANY)
-		(ANSBUILD (PLUS PLAUS (PLAUSIBILITY? RSS))
+		(ANSBUILD (+ PLAUS (PLAUSIBILITY? RSS))
 			  (PREPPUT (NAMESUGAR LENGTH REL))
 			  T))
 	       ((MEMQ TYPE '(WHICH WHAT))
-		(ANSBUILD (PLUS PLAUS
+		(ANSBUILD (+ PLAUS
 				(PLAUSIBILITY? RSS)
 				(COND (ANS 512.) (0.)))
 			  (PREPPUT (NAMELIST PHRASE 'DEF ANS))
@@ -482,52 +489,52 @@ TEST-LOOP
 	       ((EQ TYPE 'INDEF)
 		(SETQ NUM (NUMBER? REL))
 		(ANSBUILD
-		 (PLUS PLAUS (PLAUSIBILITY? RSS))
+		 (+ PLAUS (PLAUSIBILITY? RSS))
 		 (COND
-		  ((MEMQ NUM '(NS SG-PL))
+		  ((MEMQ NUM '(NS SG-PL NPL))
 		   (COND
 		    ((NULL ANS)
 		     (COND ((ISTENSE (PARSENODE? RSS) 'MODAL)
-			    '((SAY I DON/'T KNOW)))
+			    '((SAY I DON\'T KNOW)))
 			   (T '((SAY NO)))))
 		    (T
 		     (APPEND
-		      '((SAY YES,))
+		      '((SAY YES\,))
 		      (COND
 		       ((ISTENSE (PARSENODE? RSS) 'MODAL) NIL)
 		       ((PREPPUT
 			 (APPEND (AND (CDR ANS)
 				      (APPEND (NAMESUGAR LENGTH REL)
-					      '((PRINC ':))))
+					      '((PRINC '\:))))
 				 (NAMELIST PHRASE
 					   'INDEF
 					   ANS)))))))))
 		  ((NUMBERP NUM)
 		   (APPEND (COND ((EQ NUM LENGTH)
-				  '((SAY YES,)))
-				 ((GREATERP LENGTH NUM) NIL)	       ;THIS IS THE CASE WHERE WE ARE CAGEY AND AVOID
-				 ((ZEROP NUM) '((SAY NO,)))	       ;ANSWERING YES OR NO.
-				 (T '((SAY NO, ONLY))))
+				  '((SAY YES\,)))
+				 ((> LENGTH NUM) NIL)		       ;THIS IS THE CASE WHERE WE ARE CAGEY AND AVOID
+				 ((ZEROP NUM) '((SAY NO\,)))	       ;ANSWERING YES OR NO.
+				 (T '((SAY NO\, ONLY))))
 			   (COND ((EQ NUM LENGTH) NIL)		       ;THE NUMBER ISN'T REPEATED IF IT IS THE SAME AS
 				 (T (PREPPUT (APPEND (NAMESUGAR LENGTH
 								REL)   ;THE NUMBER IN THE SPECIFICATION.
-						     '((PRINC ':))))))
+						     '((PRINC '\:))))))
 			   (PREPPUT (NAMELIST PHRASE
 					      'INDEF
 					      ANS))))
 		  ((EQ (CAR NUM) 'EXACTLY)
 		   (COND ((EQ LENGTH NUM) '((SAY YES)))
-			 (T (CONS '(SAY NO,)
+			 (T (CONS '(SAY NO\,)
 				  (PREPPUT (NAMESUGAR LENGTH RES))))))
 		  ((EQ (CAR NUM) '>)
-		   (CONS (COND ((GREATERP LENGTH NUM)
-				'(SAY YES,))
-			       ((ZEROP LENGTH) '(SAY NO,))
-			       (T '(SAY NO, ONLY)))
+		   (CONS (COND ((> LENGTH (CADR NUM))
+				'(SAY YES\,))
+			       ((ZEROP LENGTH) '(SAY NO\,))
+			       (T '(SAY NO\, ONLY)))
 			 (PREPPUT (NAMESUGAR LENGTH REL))))
 		  ((EQ (CAR NUM) '<)
-		   (CONS (COND ((LESSP LENGTH NUM) '(SAY YES,))
-			       (T '(SAY NO,)))
+		   (CONS (COND ((< LENGTH (CADR NUM)) '(SAY YES\,))
+			       (T '(SAY NO\,)))
 			 (PREPPUT (NAMESUGAR LENGTH REL))))
 		  ((ERT ANSREL -- FUNNY NUMBER)))
 		 T))
@@ -541,6 +548,7 @@ TEST-LOOP
 
        ;;GENRATES A THEOREM OR ASSERTION FOR AN EXPRESSION
        (PROG (NEG VARLIST BODY) 
+             (DECLARE (SPECIAL NEG VARLIST BODY))
 	     (COND
 	      ((ATOM EXP) (NOTELL))				       ;NOTELL MARKS THAT THIS ISN'T THE KIND OF
 	      ((NOT (GET (CAR EXP) 'TELLABLE)) (NOTELL))	       ;ASSERTION IT CAN HANDLE.  IT USES GLOBAL-ERR
@@ -586,6 +594,7 @@ TEST-LOOP
 ;;;############################################################
 
 (DEFUN ANSTHMELEMENT (X) 
+       (DECLARE (SPECIAL X))
        (COND ((NOT (ATOM X)) X)
 	     ((TSS? X) (NOTELL))
 	     ((RSS? X) (NOTELL))
@@ -633,7 +642,8 @@ TEST-LOOP
 (DEFUN CUTOFF (X) 
 
        ;;FOR CUTTING # OFF OF CONCEPT NAMES TO GET ENGLISH WORDS
-       (READLIST (CDR (EXPLODE X))))
+       (READLIST (REVERSE (CDR (REVERSE (CDDR (EXPLODE X)))))))
+
 
 
 
@@ -645,7 +655,7 @@ TEST-LOOP
 	     (RETURN
 	      (COND
 	       ((EQ TYPE 'WHERE)
-		(GLOBAL-ERR I CAN/'T ANSWER "WHERE" QUESTIONS YET))
+		(GLOBAL-ERR I CAN\'T ANSWER \"WHERE\" QUESTIONS YET))
 	       ((EQ TYPE 'WHY)
 		(COND ((EQ (GET EVENT 'WHY) 'COMMAND)
 		       '((SAY BECAUSE YOU TOLD ME TO)))
@@ -660,14 +670,14 @@ TEST-LOOP
 			EVENTLIST)
 		(COND
 		 ((NULL ANS)
-		  '((SAY I CAN/'T ANALYZE HOW I DID IT)))
+		  '((SAY I CAN\'T ANALYZE HOW I DID IT)))
 		 (T
 		  (APPEND
 		   '((SAY BY))
 		   (NAMEACTION 'ING (CAR ANS))
 		   (MAPCAN 
 		    '(LAMBDA (X) 
-			     (CONS '(PRINC '/;)
+			     (CONS '(PRINC '\;)
 				   (CONS '(SAY THEN)
 					 (NAMEACTION 'ING X))))
 		    (CDR ANS))))))
@@ -695,7 +705,7 @@ TEST-LOOP
 (DEFUN DISPUT (ASSERTION) 
 
        ;;PUT THE SENTENCE NUMBER ON THE ASSERTION AS A WHO PROPERTY
-       (OR (NOT DISCOURSE) (PUTPROP ASSERTION SENTNO 'WHO)))
+       (OR (NOT DISCOURSE) (SETF (GETF (CDR ASSERTION) 'WHO) SENTNO)))
 
 
 
@@ -729,8 +739,8 @@ TEST-LOOP
 ;;;############################################################
 
 (DEFUN ENOUGH-BETTER (ANS1 ANS2) 
-       (GREATERP (PLAUSIBILITY? ANS1)
-		 (PLUS (PLAUSIBILITY? ANS2) TIMID)))
+       (> (PLAUSIBILITY? ANS1)
+	 (+ (PLAUSIBILITY? ANS2) TIMID)))
 
 
 
@@ -763,6 +773,7 @@ TEST-LOOP
 ;;;############################################################
 
 (DEFUN LISTNAMES (PHRASE SPEC NAMES) 
+       (DECLARE (SPECIAL PHRASE))
 
        ;;PHRASE IS THE INITIAL THING TO COMPARE FOR USING "ONE", SPEC
        ;;IS EITHER DEF OR INDEF, AND THE NAMES ARE OF DATA-BASE
@@ -770,15 +781,15 @@ TEST-LOOP
        ;;PUTTING THINGS ONTO THE BACKREF.  IT IS CALLED AFTER THE
        ;;ANSWER HAS BEEN DECIDED ON.
        (PROG (COUNT EXAM X RES ANS COMMA?) 
-	     (SETQ NAMES (MAPCAR '(LAMBDA (X) (NAMEOBJ X SPEC))
+	     (SETQ NAMES (MAPCAR #'(LAMBDA (X) (NAMEOBJ X SPEC))
 				 NAMES))			       ;NAMEOBJ RETURNS A LIST OF THE OBJECT AND THE
-	     (COND ((NULL NAMES) (RETURN '(SAY NOTHING))))	       ;THIS PATCH MAY WELL BE TOTALLOUT OF PHASE WITH
+	     (COND ((NULL NAMES) (RETURN '((SAY NOTHING)))))	       ;THIS PATCH MAY WELL BE TOTALLOUT OF PHASE WITH
 	UP   (SETQ COUNT 1.)					       ;THE BACKREF HACKER - DDM 5-12-73 INSTRUCTIONS
 	     (SETQ EXAM (CAR NAMES))				       ;FOR NAMING IT.
 	     (SETQ NAMES (CDR NAMES))
 	BACK (COND ((SETQ X (ASSOC (CAR EXAM) NAMES))
 		    (SETQ NAMES (DELQ X NAMES))
-		    (SETQ COUNT (ADD1 COUNT))
+		    (SETQ COUNT (+ 1 COUNT))
 		    (SETQ EXAM (LIST (CAR EXAM)
 				     (APPEND (CADR X) (CADR EXAM))))
 		    (GO BACK)))					       ;WHEN THERE ARE TWO OBJECTS WITH THE SAME
@@ -788,7 +799,7 @@ TEST-LOOP
 	     (AND NAMES (GO UP))				       ;PRODUCED COMBINING THE OBJECTS. THE COUNT IS
 	     (SETQ 						       ;LATER USED TO PUT IN THE APPROPRIATE NUMBER,
 	      RES						       ;AND THE DESCRIPTION IS CHECKED TO SEE IF "ONE"
-	      (MAPCAR '(LAMBDA (PHRASE2) 			       ;CAN BE USED. ADD THE ONE JUST PRODUCED TO THE
+	      (MAPCAR #'(LAMBDA (PHRASE2) 			       ;CAN BE USED. ADD THE ONE JUST PRODUCED TO THE
 			       (COND ((PROPNAME (CAADR PHRASE2))       ;RESULT LIST. TRY ANOTHER.
 				      (CAR PHRASE2))
 				     (T (ANSNAME PHRASE2)	       ;ANSNAME PARSES THE PHRASE AND PUTS THE
@@ -800,11 +811,11 @@ TEST-LOOP
 		   ((CDR RES)
 		    (SETQ COMMA? T)
 		    (SETQ ANS (APPEND ANS
-				      '((PRINC '/,))
+				      '((PRINC '\,))
 				      (CAR RES))))
 		   ((SETQ ANS (APPEND ANS
 				      (AND COMMA?
-					   '((PRINC '/,)))
+					   '((PRINC '\,)))
 				      '((SAY AND))
 				      (CAR RES)))))
 	     (GO OUTPUT)))
@@ -818,6 +829,7 @@ TEST-LOOP
 
 
 (DEFUN NAMEACTION (TENSE EVENT) 
+       (DECLARE (SPECIAL TENSE))
 
        ;;THIS FUNCTION SETS UP A LIST OF S-EXPRESSIONS
        ;;WHICH ARE RETURNED TO DESCRIBEVENT AND WHICH
@@ -858,13 +870,22 @@ TEST-LOOP
 				  (NAMELIST-EVALED '(NIL)
 					    'DEF
 					    OBJ2))))
+		   ((EQ VERB 'PUTIN)
+		    (APPEND (CONS (SAYIFY (VBFIX 'PUT T))
+		    		  (NAMELIST-EVALED '(NIL)
+				  	    'DEF
+					    OBJ1))
+			    (CONS '(SAY IN)
+			    	  (NAMELIST-EVALED '(NIL)
+				  	    'DEF
+					    OBJ2))))
 		   ((EQ VERB 'STACKUP)
 		    (CONS (VBFIX STACK T) (PRON-PRT 'UP OBJ1)))
 		   ((EQ VERB 'RAISEHAND) NIL)
 		   (T (BUG NAMEACTION
 			   -
 			   I
-			   DON/'T
+			   DON\'T
 			   KNOW
 			   WHAT
 			   TO
@@ -907,15 +928,15 @@ TEST-LOOP
 (SETQ F (LIST 'LISTNAMES
 (QUOTIFY ONE)
 (QUOTIFY SPEC)
-(QUOTIFY LISTX)))
-(RETURN (LIST (EVAL F)))))
+(QUOTIFY (LIST LISTX))))
+(RETURN (EVAL F))))
 
 ;;;############################################################
 
 (DEFUN NAMENUM (X) 
 
        ;;GENERATES NUMBER NAMES
-       (OR (NTH (ADD1 X)
+       (OR (SHRDLU-NTH (+ 1 X)
 		'(NONE ONE
 		       TWO
 		       THREE
@@ -926,27 +947,30 @@ TEST-LOOP
 		       EIGHT
 		       NINE
 		       TEN))
-	   (GLOBAL-ERR I CAN/'T COUNT THAT HIGH)))
+	   (GLOBAL-ERR I CAN\'T COUNT THAT HIGH)))
 
 ;;;############################################################
 
 (DEFUN NAMEOBJ (ITEM SPEC) 
+       (DECLARE (SPECIAL ITEM))
 
        ;;NAMES THE OBJECT IN ENGLISH -- GENERATES LIST OF THINGS TO
        ;;BE EVALUATED.  SPEC IS EITHER 'INDEF OR 'DEF
-       (PROG (TYPE: TYPELIST TYPE NAME: COLOR: COLORLIST SIZE:
+       (PROG (TYPE\: TYPELIST TYPE NAME\: COLOR\: COLORLIST SIZE\:
 	      SIZELIST CUBE NAME X) 
+	     (DECLARE (SPECIAL TYPE\: TYPELIST TYPE NAME\: COLOR\:
+	                       COLORLIST SIZE\: SIZELIST CUBE NAME))
 	     (AND (SETQ X (ASSOC ITEM
 				 '((:SHRDLU I) (:FRIEND YOU))))
 		  (RETURN (LIST (ANSAY (CDR X)) (LIST ITEM))))	       ;  SPECIAL CASE CHECK
 	     (THVAL2 NIL
-		     '(THGOAL (#NAMEOBJ) (THUSE TC-NAMEOBJ)))
+		     '(THGOAL (\#NAMEOBJ) (THUSE TC-NAMEOBJ)))
 	     (OR TYPELIST
-		 (ERT NAMEOBJ -- OBJECT WITH NO #IS ASSERTION))
-	     (DISPUT TYPE:)					       ;DISPUT CHECKS TO SEE IF DISCOURSE IS BEING
-	     (COND ((EQ (SETQ TYPE (CADDAR TYPE:)) '#NAME)	       ;KEPT, AND IF SO PUTS THE RELEVANT SENTENCE
+		 (ERT NAMEOBJ -- OBJECT WITH NO \#IS ASSERTION))
+	     (DISPUT TYPE\:)					       ;DISPUT CHECKS TO SEE IF DISCOURSE IS BEING
+	     (COND ((EQ (SETQ TYPE (CADDAR TYPE\:)) '\#NAME)	       ;KEPT, AND IF SO PUTS THE RELEVANT SENTENCE
 		    (RETURN (LIST (ANSAY (LIST ITEM)) (LIST ITEM))))   ;NUMBER AS A PROPERTY ON THE ASSERTION. A NAME
-		   ((MEMQ '#PROPERTY (GET TYPE 'SYS))		       ;IS ITS OWN NAME
+		   ((MEMQ '\#PROPERTY (GET TYPE 'SYS))		       ;IS ITS OWN NAME
 		    (RETURN (LIST (ANSAY (LIST (CUTOFF ITEM)))
 				  (LIST ITEM))))		       ;CUTOFF CUTS THE # OFF OF NAMES LIKE #RED AND
 		   ((NOT (CDR TYPELIST))			       ;#POINTED WHICH ARE USED FOR PROPERTIES.
@@ -955,18 +979,18 @@ TEST-LOOP
 				  (LIST ITEM))))		       ; THERE IS ONLY ONE OBJECT OF THIS TYPE (E.G.
 		   (CUBE (SETQ NAME '(CUBE)))			       ;TABLE, BOX, HAND)
 		   ((SETQ NAME (LIST (CUTOFF TYPE)))))		       ;E.G. #BLOCK BECOMES BLOCK.
-	     (AND NAME:
+	     (AND NAME\:
 		  (RETURN (LIST (ANSAY (LIST 'THE
 					     (CAR NAME)
 					     'NAMED
-					     (CADDAR NAME:)))
+					     (CADDAR NAME\:)))
 				(LIST ITEM))))			       ;E.G. THE BLOCK NAMED SUPERBLOCK.
-	     (DISPUT COLOR:)					       ;IF WE HAVEN'T RETURNED YET, COLOR
-	     (SETQ NAME (CONS (CUTOFF (CADDAR COLOR:)) NAME))	       ;WILL BE NEEDED TO FULLY DESCRIBE THE OBJECT.
+	     (DISPUT COLOR\:)					       ;IF WE HAVEN'T RETURNED YET, COLOR
+	     (SETQ NAME (CONS (CUTOFF (CADDAR COLOR\:)) NAME))	       ;WILL BE NEEDED TO FULLY DESCRIBE THE OBJECT.
 	     (OR (CDR COLORLIST)
 		 (RETURN (LIST (ANSAY (CONS 'THE NAME))
 			       (LIST ITEM))))			       ;THERE ARE NO OTHERS OF THE SAME COLOR. IF THERE
-	     (SETQ NAME (CONS SIZE: NAME))			       ;ARE, WE MUST USE SIZE AS WELL
+	     (SETQ NAME (CONS SIZE\: NAME))			       ;ARE, WE MUST USE SIZE AS WELL
 	     (RETURN
 	      (LIST
 	       (COND
@@ -976,9 +1000,9 @@ TEST-LOOP
 		 (ANSAY (CONS 'A NAME)))			       ;IN THE INDEFINITE CASE WE DON'T CARE IF THIS
 		((SETQ X (THVAL2 NIL				       ;ISN'T A FULL SPECIFICATION.
 				 '(THFIND ALL
-					  $?X
+					  (THV X)
 					  (X (Y ITEM))
-					  ($G (#SUPPORT $?Y $?X)))))
+					  (THGOAL (\#SUPPORT (THV Y) (THV X))))))
 		 (CONS (APPEND '(SAY THE) NAME)
 		       (CONS '(SAY WHICH SUPPORTS)
 			     (LISTNAMES NIL 'INDEF X))))	       ;IF IT SUPPORTS ANYTHING, NAME THEM.
@@ -990,10 +1014,10 @@ TEST-LOOP
 			   X
 			   (THVAL2 NIL
 				   '(THFIND ALL
-					    $?X
+					    (THV X)
 					    (X (Y ITEM))
-					    ($G (#AT $?X ?))	       ;MAKE SURE IT IS AN ITEM WITH A LOCATION.
-					    ($G (#LOC #RIGHT $?Y $?X)
+					    (THGOAL (\#AT (THV X) ?))	       ;MAKE SURE IT IS AN ITEM WITH A LOCATION.
+					    (THGOAL (\#LOC \#RIGHT (THV Y) (THV X))
 						(THUSE TC-LOC)))))
 			  (LISTNAMES NIL 'INDEF X))
 			 ('((SAY NOTHING))))))))
@@ -1003,28 +1027,28 @@ TEST-LOOP
 
 ;;;############################################################
 
-(DEFPROP TC-NAMEOBJ
-	 (THCONSE ((X ITEM) TYPE COLOR NAME SIZE Y Z)		       ; PLANNER IS CALLED TO SEE HOW MANY OBJECTS FIT
-		  (#NAMEOBJ)					       ;VARIOUS FORMS OF THE DESCRIPTION  IT USES
-		  ($G (#IS $?X $?TYPE))				       ;FAILURE TO LOOP THROUGH THEM, SUCCESSIVELY
-		  (SETQ TYPE: THVALUE)				       ;FILTERING THEM THROUGH GOALS IN WHICH THEY ARE
-		  (OR (SETQ CUBE (AND (EQ $?TYPE '#BLOCK)	       ;FORCED TO MATCH THE CHOSEN ITEM  THIS IS VALUE
-				      (#EQDIM $?X)))		       ;IS THE ENTIRE TYPE ASSERTION FOR
+(SETF (GET 'TC-NAMEOBJ 'THEOREM)
+	 '(THCONSE ((X ITEM) TYPE COLOR NAME SIZE Y Z)		       ; PLANNER IS CALLED TO SEE HOW MANY OBJECTS FIT
+		  (\#NAMEOBJ)					       ;VARIOUS FORMS OF THE DESCRIPTION  IT USES
+		  (THGOAL (\#IS (THV X) (THV TYPE)))			       ;FAILURE TO LOOP THROUGH THEM, SUCCESSIVELY
+		  (SETQ TYPE\: THVALUE)				       ;FILTERING THEM THROUGH GOALS IN WHICH THEY ARE
+		  (OR (SETQ CUBE (AND (EQ (THV TYPE) '\#BLOCK)	       ;FORCED TO MATCH THE CHOSEN ITEM  THIS IS VALUE
+				      (\#EQDIM (THV X))))		       ;IS THE ENTIRE TYPE ASSERTION FOR
 		      T)					       ;SPECIAL CHECK TO CALL EQUIDIMENSIONAL BLOCKS
-		  (THCOND (($G (#NAME $?X $?NAME))		       ;"CUBE" THE OR IS TO PREVENT PLANNER FROM
+		  (THCOND ((THGOAL (\#NAME (THV X) (THV NAME)))		       ;"CUBE" THE OR IS TO PREVENT PLANNER FROM
 			   (SETQ NAME THVALUE))			       ;FAILING THE CHOSEN OBJECT.  IT IS SAVED SO THE
-			  (($G (#IS $?Y $?TYPE))		       ;SENTENCE NUMBER CAN BE PUT ON ITS PROPERTY LIST
-			   (OR (NOT CUBE) (#EQDIM $?Y))		       ;IF THE FACT IS USED IN THE DESCRIPTION.  IF THE
-			   (SETQ TYPELIST (CONS $?Y TYPELIST))	       ;ITEM HAS A NAME, NO MORE IS NEEDED. FIND
-			   ($G (#COLOR $?X $?COLOR))		       ;SOMETHING ELSE OF THE SAME TYPE. NOTE THAT THIS
-			   (SETQ COLOR: THVALUE)		       ;WILL FIND THE ITEM ITSELF ALONG WITH THE OTHERS
-			   ($G (#COLOR $?Y $?COLOR))		       ;AND THUS PUT IT ON THE LIST.  THIS KEEPS A LIST
-			   (SETQ COLORLIST (CONS $?Y COLORLIST))       ;OF ALL THE OBJECTS WHICH MAKE IT THIS FAR. 
-			   (SETQ SIZE: (NAMESIZE (SIZE $?X)))	       ;NOTE THAT SINCE IT IS SETQ INSTEAD OF THSETQ,
-			   (EQ SIZE: (NAMESIZE (SIZE $?Y)))	       ;BACKUP DOESN'T UNDO IT. ANYTHING WHICH MAKES IT
-			   (SETQ SIZELIST (CONS $?Y SIZELIST))	       ;THIS FAR IS BOTH THE SAME TYPE AND THE SAME
-			   (THFAIL))))				       ;COLOR WE DON'T WANT TO CHECK FOR EXACT EQUALITY
-	 THEOREM)						       ;OF SIZE, JUST WHETHER THEY WOULD BE CALLED THE
+			  ((THGOAL (\#IS (THV Y) (THV TYPE)))		       ;SENTENCE NUMBER CAN BE PUT ON ITS PROPERTY LIST
+			   (OR (NOT CUBE) (\#EQDIM (THV Y)))	       ;IF THE FACT IS USED IN THE DESCRIPTION.  IF THE
+			   (SETQ TYPELIST (CONS (THV Y) TYPELIST))	       ;ITEM HAS A NAME, NO MORE IS NEEDED. FIND
+			   (THGOAL (\#COLOR (THV X) (THV COLOR)))	       ;SOMETHING ELSE OF THE SAME TYPE. NOTE THAT THIS
+			   (SETQ COLOR\: THVALUE)		       ;WILL FIND THE ITEM ITSELF ALONG WITH THE OTHERS
+			   (THGOAL (\#COLOR (THV Y) (THV COLOR)))	       ;AND THUS PUT IT ON THE LIST.  THIS KEEPS A LIST
+			   (SETQ COLORLIST (CONS (THV Y) COLORLIST))       ;OF ALL THE OBJECTS WHICH MAKE IT THIS FAR. 
+			   (SETQ SIZE\: (NAMESIZE (SIZE (THV X))))	       ;NOTE THAT SINCE IT IS SETQ INSTEAD OF THSETQ,
+			   (EQ SIZE\: (NAMESIZE (SIZE (THV Y))))	       ;BACKUP DOESN'T UNDO IT. ANYTHING WHICH MAKES IT
+			   (SETQ SIZELIST (CONS (THV Y) SIZELIST))	       ;THIS FAR IS BOTH THE SAME TYPE AND THE SAME
+			   (THFAIL)))))				       ;COLOR WE DON'T WANT TO CHECK FOR EXACT EQUALITY
+	 							       ;OF SIZE, JUST WHETHER THEY WOULD BE CALLED THE
 								       ;SAME THING.  THE THFAIL SENDS IT BACK UP
 								       ;SEARCHING FOR MORE.
 
@@ -1033,8 +1057,8 @@ TEST-LOOP
 ;;;############################################################
 
 (DEFUN NAMESIZE (X) 
-       (OR (NUMBERP X) (SETQ X (APPLY 'PLUS X)))		       ;ACCEPTS EITHER SINGLE NUMBER OR LIST OF
-       (COND ((GREATERP X 383.) 'LARGE)				       ;DIMENSIONS.
+       (OR (NUMBERP X) (SETQ X (APPLY '+ X)))			       ;ACCEPTS EITHER SINGLE NUMBER OR LIST OF
+       (COND ((> X 383.) 'LARGE)				       ;DIMENSIONS.
 	     (T 'SMALL)))
 
 
@@ -1045,7 +1069,7 @@ TEST-LOOP
 
        ;;GENERATES PHRASES LIKE "THREE OF THEM"
        (PROG (VAGUE) 
-	     (SETQ VAGUE (MEMQ '#VAGUE (MARKERS? OSS)))		       ;VAGUE IS FOR WORDS LIKE "ANYTHING",
+	     (SETQ VAGUE (MEMQ '\#VAGUE (MARKERS? OSS)))	       ;VAGUE IS FOR WORDS LIKE "ANYTHING",
 	     (RETURN
 	      (LIST
 	       (CONS 'SAY					       ;"SOMETHING", "NOTHING" TO AVOID SAYING "OF
@@ -1078,12 +1102,14 @@ TEST-LOOP
 ;;;############################################################
 
 (DEFUN ONECHECK (ITEM) 
+       (DECLARE (SPECIAL ITEM))
 
        ;;CHECKS TO SEE IF A SUBSTITUTE "ONE" CAN BE USED.  ITEM IS A
        ;;SINGLE "SAY" PHRASE.  "PHRASE" IS A FREE VARIABLE IN
        ;;LISTNAMES
        (PROG (ANS OLD NEW) 
-	     (AND (EQUAL PHRASE '(NIL))
+             (DECLARE (SPECIAL NEW))
+	     (AND (OR (EQUAL PHRASE NIL) (EQUAL PHRASE '(NIL)))
 		  (SETQ PHRASE (CAR ITEM))
 		  (RETURN ITEM))
 	     (SETQ OLD (REVERSE PHRASE))
@@ -1119,7 +1145,7 @@ TEST-LOOP
        (COND ((EQUAL NUM 1.) 'ONCE)
 	     ((EQUAL NUM 2.) 'TWICE)
 	     ((READLIST (NCONC (EXPLODE (NAMENUM NUM))
-			       '(/ T I M E S))))))
+			       '(\ T I M E S))))))
 
 
 
@@ -1139,7 +1165,7 @@ TEST-LOOP
 	     ((OR? RSS)
 	      ;;;(PLNR-ORIFY NIL
 	      ;;;            (MAPCAR 'PLNR-ANDORIFY (OR? RSS)))
-	      (ert sorry, plnr-orify not written))
+	      (ert sorry\, plnr-orify not written))
 	     ((PLNR-PROGIFY NIL
 			    (MAPCAR 'PLNR-GOALIFY
 				    (RELATIONS? RSS))))))
@@ -1165,7 +1191,7 @@ TEST-LOOP
 
        ;;CONVERTS A SINGULAR NOUNPHRASE OR "ONCE" STATEMENT INTO
        ;;PLURAL.
-       (COND ((GREATERP 2. NUM) ITEM)
+       (COND ((> 2. NUM) ITEM)
 	     (T (COND ((MEMQ 'A (CAR ITEM))
 		       (CONS (PLURALMAKE (SUBST (NAMENUM NUM)
 						'A
@@ -1219,9 +1245,9 @@ TEST-LOOP
 
 
 
-(DEFUN SAYIFY FEXPR (EXP-LIST) 
+(DEFUN-FEXPR SAYIFY (EXP-LIST) 
        (CONS 'SAY
-	     (MAPCAR '(LAMBDA (Y) (EVAL Y)) EXP-LIST)))
+	     (MAPCAR #'(LAMBDA (Y) (EVAL Y)) EXP-LIST)))
 
 ;;;############################################################
 
@@ -1240,8 +1266,8 @@ TEST-LOOP
 	     (OR (EQUAL ANS (THVAL2 'HE CODE))			       ;WHEN THERE ARE AMBIGUITIES.
 		 (RETURN (LIST 256. ANS)))			       ;GIVE A VALUE OF 400 IF HE COULDN'T HAVE
 	     (RETURN (COND ((EQUAL ANS
-				   (THVAL2 (LIST (*DIF SENTNO 2.)      ;ANSWERED IT AT ALL.
-						 (ADD1 SENTNO))
+				   (THVAL2 (LIST (- SENTNO 2.)         ;ANSWERED IT AT ALL.
+						 (+ 1 SENTNO))
 					   CODE))
 			    (LIST 0. ANS))			       ;PLAUSIBILITY IS 0 IF HE COULD HAVE ANSWERED IT
 			   ((LIST 128. ANS))))))		       ;WITH RECENTLY MENTIONED INFORMATION. 200 IF HE
@@ -1262,7 +1288,9 @@ TEST-LOOP
 ;;;############################################################
 
 (DEFUN FINDCHOOSE (OSS X ANS2) 
+       (DECLARE (SPECIAL ANS2))
        (PROG (HAVE NEED XX ANS PLNRCODE LOOP) 
+             (DECLARE (SPECIAL ANS))
 	     (AND (REFER? OSS) (RETURN (ATOMIFY (REFER? OSS))))
 	     (COND
 	      ((AND? OSS)
@@ -1287,7 +1315,7 @@ TEST-LOOP
 	     (SETQ PLNRCODE (PLNR-DESCRIBE (RELATIONS? OSS)
 					   (VARIABLE? OSS)
 					   (LIST (VARIABLE? OSS))))
-	     (PUTPROP OSS PLNRCODE 'PLNRCODE=)
+	     (SETF (GET OSS 'PLNRCODE=) PLNRCODE)
 	     (COND
 	      ((EQ (QUANTIFIER? OSS) 'ALL)
 	       (RETURN
@@ -1303,10 +1331,10 @@ TEST-LOOP
 	     (SETQ HAVE 0.)
 	GO   (COND
 	      ((OR (EQ HAVE NEED)
-		   (AND (GREATERP HAVE NEED)
+		   (AND (> HAVE NEED)
 			(SETQ ANS (FINDREDUCE ANS
-					      (DIFFERENCE HAVE
-							  NEED)))))
+					      (- HAVE
+					         NEED)))))
 	       (GO DONE))
 	      ((EQ X 'NOMORE) (RETURN NIL))
 	      ((SETQ 
@@ -1317,7 +1345,7 @@ TEST-LOOP
 		  (APPEND
 		   (THVAL
 		    (PLNR-FINDIFY
-		     (LIST 1. (DIFFERENCE NEED HAVE) T)
+		     (LIST 1. (- NEED HAVE) T)
 		     (VARIABLE? OSS)
 		     (LIST (VARIABLE? OSS))
 		     (PLNR-PROGIFY
@@ -1329,9 +1357,9 @@ TEST-LOOP
 						(MEMQ (THV ***)
 						      ANS2)))))
 			      (AND X
-				   (SUBST (VARIABLE? OSS)
+				   (LIST (SUBST (VARIABLE? OSS)
 					  '*
-					  (CAR X))))))
+					  (CAAR X)))))))
 		    THALIST)
 		   ANS))))
 	       (SETQ X (COND (X (CDR X)) ('NOMORE)))
@@ -1348,9 +1376,8 @@ TEST-LOOP
 		   (ANS)
 		   ((RETURN NIL)))
 	DONE (AND (ATOM (VARIABLE? OSS))
-		  (PUTPROP (VARIABLE? OSS)
-			   (REVERSE ANS)
-			   'BIND))
+		  (SETF (GET (VARIABLE? OSS) 'BIND)
+			   (REVERSE ANS)))
 	     (RETURN (ATOMIFY (REVERSE ANS)))))
 
 
@@ -1360,8 +1387,8 @@ TEST-LOOP
 (DEFUN FINDNUM (X) 
        (COND ((NUMBERP X) X)
 	     ((EQ (CAR X) 'EXACTLY)
-	      (LIST (CADR X) (ADD1 (CADR X)) NIL))
-	     ((EQ (CAR X) '>) (ADD1 (CADR X)))
+	      (LIST (CADR X) (+ 1 (CADR X)) NIL))
+	     ((EQ (CAR X) '>) (+ 1 (CADR X)))
 	     ((EQ (CAR X) '<) (CADR X))
 	     ((EQ X 'NS) 1.)
 	     ((EQ X 'NPL) 2.)
@@ -1380,24 +1407,22 @@ TEST-LOOP
 
 ;;;############################################################
 
-(DEFPROP IASS
-	 (LAMBDA (X) 
-		 (PROG (XX) 
-		       (OR (SETQ XX
-				 (CADR (SASSQ X
-					      (CADR (CADDDR ANS))
-					      (FUNCTION SASS))))
-			   (RETURN T))
-		       (SAY /
-BY)		       (PRINC (COND ((EQ X (Quote IT)) (Quote "IT"))
-				    ((MEMQ (Quote THEY) (FROM SENT NIL))
-				     (Quote "THEY"))
-				    ((Quote "THEM"))))
-		       (SAY , I ASSUME YOU)
-		       (PRINC (Quote MEAN))
-		       (MAPC (FUNCTION PRINT2) (PARAP XX))
-		       (RETURN (PRINC (Quote /./
-)))))    EXPR)
+(DEFUN IASS (X)
+	 (PROG (XX) 
+	       (OR (SETQ XX
+			 (CADR (SASSQ X
+				      (CADR (CADDDR ANS))
+				      #'SASS)))
+		   (RETURN T))
+	       (SAY \(BY)
+	       (PRINC (COND ((EQ X 'IT) '\"IT\")
+		       ((MEMQ 'THEY (FROM SENT NIL))
+		       '\"THEY\")
+		       ('\"THEM\")))
+	       (SAY \, I ASSUME YOU)
+	       (PRINC 'MEAN)
+	       (MAPC #'PRINT2 (PARAP XX))
+	       (RETURN (PRINC '\.\) ))))
 
 
 
@@ -1427,21 +1452,21 @@ BY)		       (PRINC (COND ((EQ X (Quote IT)) (Quote "IT"))
 	     (OR
 	      (THVAL (LIST 'THGOAL
 			   (COND ((EQ (CAR EV) 2.)
-				  '(? $?EVENT))
+				  '(? (THV EVENT)))
 				 ((EQ (CAR EV) 3.)
-				  '(? $?EVENT (THNV SUBJ)))
+				  '(? (THV EVENT) (THNV SUBJ)))
 				 ((EQ (CAR EV) 'I3)
-				  '(? $?EVENT (THNV OBJ1)))
+				  '(? (THV EVENT) (THNV OBJ1)))
 				 ((EQ (CAR EV) 4.)
-				  '(? $?EVENT
+				  '(? (THV EVENT)
 				      (THNV SUBJ)
 				      (THNV OBJ1)))
 				 ((EQ (CAR EV) 'I4)
-				  '(? $?EVENT
+				  '(? (THV EVENT)
 				      (THNV OBJ1)
 				      (THNV OBJ2)))
 				 ((EQ (CAR EV) 5.)
-				  '(? $?EVENT
+				  '(? (THV EVENT)
 				      (THNV SUBJ)
 				      (THNV OBJ1)
 				      (THNV OBJ2)))
@@ -1455,11 +1480,11 @@ BY)		       (PRINC (COND ((EQ X (Quote IT)) (Quote "IT"))
 				 (LIST 'OBJ2 NIL))))
 	      (ERT NAMEVENT THVAL))
 	     (MAPC 
-	      (FUNCTION (LAMBDA (X) 
-				(AND (CADR X)
-				     (SET (CAR X)
-					  (ert undef-fn: names NAMES (LISTIFY (CADR X))
-						 'EV)))))
+	      #'(LAMBDA (X) 
+			(AND (CADR X)
+			     (SET (CAR X)
+				  (ert undef-fn\: names NAMES (LISTIFY (CADR X))
+					 'EV))))
 	      (CDR THALIST))
 	     (SETQ ANSBACK2 (OR ANSBACK T))
 	     (SETQ LASTANSEV EVENT)
@@ -1472,7 +1497,7 @@ BY)		       (PRINC (COND ((EQ X (Quote IT)) (Quote "IT"))
 
 ;;;############################################################
 
-(DEFUN PARAP () (ERT YOU LOSE, PARAP IS FLUSHED UNTILL IT CAN BE FIGURED OUT))
+(DEFUN PARAP () (ERT YOU LOSE\, PARAP IS FLUSHED UNTILL IT CAN BE FIGURED OUT))
 
 ;;;(DEFPROP
 ;;; PARAP
@@ -1482,15 +1507,15 @@ BY)		       (PRINC (COND ((EQ X (Quote IT)) (Quote "IT"))
 ;;;	      (COND ((OR (EQ X (GET (Q IT) (Q LASTT)))
 ;;;			 (EQ X (GET (Q THEY) (Q LASTT))))
 ;;;		     (Q (THE SAME THING)))
-;;;		    ((ert iassume: some implementation dependant code used to
+;;;		    ((ert iassume\: some implementation dependant code used to
 ;;;be executed at this point and no one has figured out yet quite what it was
-;;;trying to accomplish/. sorry/, you lose))
+;;;trying to accomplish\. sorry\, you lose))
 ;;;                    ;;; ( SETQ Y
-;;;		    ;;;	   (SUBLIS '((YOU #777777
+;;;		    ;;;	   (SUBLIS '((YOU \#777777
 ;;;		    ;;;			  PNAME
 ;;;		    ;;;			  (-29527900160.))
-;;;		    ;;;		     (I #777777 PNAME (-20603830272.))
-;;;		    ;;;		     (ARE #777777
+;;;		    ;;;		     (I \#777777 PNAME (-20603830272.))
+;;;		    ;;;		     (ARE \#777777
 ;;;		    ;;;			  PNAME
 ;;;		    ;;;			  (-33499906048.)))
 ;;;		    ;;;		   (OR (FASSOC (FUNCTION CADDDR)
@@ -1532,7 +1557,8 @@ BY)		       (PRINC (COND ((EQ X (Quote IT)) (Quote "IT"))
 ;;;############################################################
 
 (DEFUN VBFIX (X PP) 
-       (COND ((EQ TENSE 'ING)
+       (DECLARE (SPECIAL PP))
+       (COND ((EQ TENSE 'PRES-PAST)
 	      (SETQ X (REVERSE (EXPLODE X)))
 	      (READLIST (REVERSE (APPEND '(G N I)
 					 (VBFIX2 X)
@@ -1555,4 +1581,3 @@ BY)		       (PRINC (COND ((EQ X (Quote IT)) (Quote "IT"))
 	    (MEMQ (CAR X) CONSO)
 	    (MEMQ (CADR X) VOWEL)
 	    (LIST (CAR X))))
-

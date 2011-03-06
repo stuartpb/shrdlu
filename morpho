@@ -1,7 +1,4 @@
 
-(declare (genprefix morpho))
-
-
 ;;;********************************************************************************
 ;;;
 ;;;               MORPHO  - code for morphological analysis
@@ -18,61 +15,10 @@
 	     (PRINT 'READY)
 	     (TERPRI)
 	     (AND MOBYREAD (IOC Q))
-	CHAR (COND ((EQUAL (TYIPEEK) 24.) (READCH) (ERT) (GO THRU)); "cntrl-x" break
-;left over from CMU
-                   ((= (tyipeek) 3.)
-(or (and mobyread (end-of-file-condition))
-    (bug etaoin: about to read eof)) )
-)
-	     (setq char (cond ((greaterp 123. (setq char (tyi)) 96.) (- char 32.))
-			      ((greaterp 91. char 64.) char)
-			      (t char))
-   	           char (ascii char)
-                   ;;this little hack maps all lowercase letters into uppercase.
-		   ;;a more reasonable thing to do would be to hack the chtrans
-		   ;;property of the current readtable, but this was quicker to
-		   ;;patch.
-                   )
-    	     (cond ((EQ char '/ ) (GO WORD))           ;DELIMITER
-		   ((MEMQ CHAR ALTMODE)
-		    (setq char (ascii (uppercase-ify-char (tyi))) )
-		    (COND ((MEMQ char ALTMODE)
-			   (ERT)
-			   (GO THRU))
-								       ;ALTMODE-ALTMODE
-			  ((EQ CHAR 'C) (TYO 12.) (GO DO))
-								       ;ALTMODE-C
-			  ((EQ CHAR 'R) (TERPRI) (GO DO))
-								       ;ALTMODE-R
-			  ((AND (EQ CHAR 'S) SAVESENT)
-								       ;ALTMODE-S CAUSES THE LAST SENTENCE TYPED IN TO
-			   (SETQ SENT (CAR SAVESENT))
-								       ;RETURNED AS THE SENTENCE TO BE INTERPRETED
-			   (SETQ PUNCT (CDR SAVESENT))
-			   (%)
-			   (RETURN SENT))
-			  ((EQ CHAR 'N)
-			   (SETQ NEWWORD (NOT NEWWORD) 
-				 ALTN (NOT ALTN))
-			   (GO CHAR))
-								       ;ALTMODE-N COMPLEMENTS THE NEWWORD FLAG, WHICH
-			  ((EQ CHAR 'Q)
-								       ;DETERMINES WHETHER UNRECOGNIZED WORDS WILL BE
-			   (IOC Q)
-								       ;CONSIDERED SPELLING ERRORS OR NEW WORDS.
-			   (SETQ IGNORE NIL)
-			   (GO THRU))
-								       ;ALTMODE-Q CAUSES READIN FROM DISK FILE.
-			  ((EQ CHAR 'M)
-			   (IOC Q)
-			   (SETQ IGNORE NIL MOBYREAD T)
-			   (GO thru))
-			  ((EQ CHAR 'I)
-			   (SETQ IGNORE T)
-			   (IOC Q)
-			   (GO THRU))
-								       ;ALTMODE-I IGNORES SENTENCE READ FROM FILE.
-			  ((GO THRU))))
+	CHAR (COND ((EQUAL (PEEK-CHAR) #\~)
+	                  (READ-CHAR) (ERT) (GO THRU))) ; BREAK
+	     (SETQ CHAR (ASCII (CHAR-UPCASE (READ-CHAR))))
+    	     (COND ((EQ CHAR '\ ) (GO WORD))           ;DELIMITER
 		   ((EQ CHAR RUBOUT)
 		    (COND (WORD (PRINC (CAR WORD))
 				(SETQ WORD (CDR WORD)))
@@ -86,13 +32,13 @@
 		    (AND WORD (GO WORD))
 		    (GO PUNC)))
 	     (AND
-	      (OR (AND (EQ CHAR '")
-		       (NOT ALREADY-BLGING-NEWRD)
-		       (SETQ NEWWORD (SETQ ALREADY-BLGING-NEWRD T))
+	      (OR (AND (EQ CHAR '\")
+		       (NOT ALREADY-BLGING-NEWWRD)
+		       (SETQ NEWWORD (SETQ ALREADY-BLGING-NEWWRD T))
 		       (GO CHAR))
-		  (AND (EQ CHAR '")
-		       ALREaDY-BLGING-NEWRD
-		       (NOT (SETQ ALREADY-BLGING-NEWRD NIL))
+		  (AND (EQ CHAR '\")
+		       ALREADY-BLGING-NEWWRD
+		       (NOT (SETQ ALREADY-BLGING-NEWWRD NIL))
 		       (GO WORD))
 								       ;WITHIN THIS "AND" ARE ALL THE CHARACTERS THAT
 		  (NUMBERP CHAR)
@@ -104,13 +50,13 @@
 	     (GO CHAR)
 	DO   (PRINT 'READY)
 	     (TERPRI)
-	     (MAPC (FUNCTION (LAMBDA (X) (PRINT2 X))) (REVERSE SENT))
-	     (PRINC '/ )
-	     (MAPC (FUNCTION PRINC) (REVERSE WORD))
+	     (MAPC #'(LAMBDA (X) (PRINT2 X)) (REVERSE SENT))
+	     (PRINC '\ )
+	     (MAPC #'PRINC (REVERSE WORD))
 	     (GO CHAR)
 	WORD (COND ((NULL WORD) (GO CHAR))
 		   ((EQUAL WORD '(P L E H)) (HELP) (GO THRU))
-		   ((AND (SETQ WRD (ERRSET (READLIST (REVERSE WORD))))
+		   ((AND (SETQ WRD (LIST (READLIST (REVERSE WORD))))
 			 (NUMBERP (SETQ WRD (CAR WRD))))
 		    (SETQ SENT (CONS WRD SENT))
 		    (BUILDWORD WRD
@@ -126,13 +72,13 @@
 		   ((SETQ X (GET WRD 'IRREGULAR))
 								       ;ARE ALL SET UP IN THE DICTIONARY
 		    (BUILDWORD WRD
-			       (MOD (GET (CAR X) 'FEATURES)
+			       (SHRDLU-MOD (GET (CAR X) 'FEATURES)
 				    (CDR X))
 			       (SM X)
 			       (CAR X)))
 		   ((EQ (CAR (LAST WORD)) '=)
 		    (BUILDWORD WRD
-			       (COND ((MEMQ '" WORD)
+			       (COND ((MEMQ '\" WORD)
 				      '(PROPN NS POSS))
 				     ('(PROPN NS)))
 			       '((PROPN T))
@@ -143,15 +89,15 @@
 	     ;;;---------------------------------------------
 	     ;;;              MORPHOLOGY CODE
 	     ;;;--------------------------------------------
-	CUT  (COND ((STA WORD '(T " N))
+	CUT  (COND ((STA WORD '(T \" N))
 		    (SETQ RD (CDDDR WORD))
 		    (SETQ WORD (CONS '* WORD))
 		    (GO TRY))
-		   ((STA WORD '(S "))
+		   ((STA WORD '(S \"))
 		    (SETQ WORD (CDDR WORD))
 		    (SETQ POSS WRD)
 		    (GO WORD))
-		   ((STA WORD '("))
+		   ((STA WORD '(\"))
 		    (SETQ WORD (CDR WORD))
 		    (SETQ POSS WRD)
 		    (GO WORD))
@@ -223,11 +169,11 @@
 			   'FEATURES))
 		(AND (SETQ X (GET ROOT 'IRREGULAR))
 		     (SETQ FEATURES
-			   (MOD (GET (SETQ ROOT (CAR X))
+			   (SHRDLU-MOD (GET (SETQ ROOT (CAR X))
 				     'FEATURES)
 				(CDR X)))))
 	       (BUILDWORD WRD
-			  (MOD FEATURES (GET (CAR WORD) 'MOD))
+			  (SHRDLU-MOD FEATURES (GET (CAR WORD) 'MOD))
 			  (GET ROOT 'SEMANTICS)
 			  ROOT))
 	      ((EQ (CAR RD) 'E) (SETQ RD (CDR RD)) (GO TRY))
@@ -255,13 +201,13 @@
 						 'SEMANTICS)
 					    ROOT)
 				 (CONS POSS SENT))
-				((BUILDWORD '"S
+				((BUILDWORD '\"S
 								       ; CAN WE GENERALIZE IT???
 					    '(VB BE V3PS PRES)
 					    (GET 'BE
 						 'SEMANTICS)
 					    'BE)
-				 (CONS '"S (CONS WRD SENT)))))
+				 (CONS '\"S (CONS WRD SENT)))))
 		    ((CONS WRD SENT))))
 	PUNC (COND
 	      (PUNCT (COND ((AND (EQ PUNCT '?) (NULL SENT))
@@ -282,65 +228,37 @@
 					 (PROPN (SMNEWPROPN)))
 				       WRD)
 			    (OR ALTN (SETQ NEWWORD NIL))
-			    (GO PUNC)))
+			    (GO WRD)))
 	     (TERPRI)
-	     (SAY *SORRY I DON/'T KNOW THE WORD ")
+	     (SAY *SORRY I DON\'T KNOW THE WORD \")
 	     (PRINC WRD)
-	     (PRINC '/ "/.)
+	     (PRINC '\ \"\.)
 	     (TERPRI)
-	     (SAY PLEASE TYPE <LF> AND CONTINUE THE SENTENCE/.)
-	NOGO (OR (EQUAL (TYI) 10.) (GO NOGO))
+	     (SAY PLEASE TYPE <LF> AND CONTINUE THE SENTENCE\.)
+	NOGO (OR (CHAR= (READ-CHAR) (CODE-CHAR 10.)) (GO NOGO))
 	     (SETQ PUNCT NIL WORD NIL)
 	     (GO DO))) 
 
 (DEFUN PROPNAME (X) (EQ (CAR (EXPLODE X)) '=)) 
-
-(DEFUN BCWL FEXPR (A) 
-								       ;DEFINES COMBINATIONS OF WORDS
-       (MAPC 
-	'(LAMBDA (X) 
-	  (MAPC 
-	   '(LAMBDA (Y) 
-	     (BUILDWORD
-	      (INTERN (MAKNAM (NCONC (EXPLODE (CAR X))
-				     (CONS '-
-					   (EXPLODE (CAR Y))))))
-	      (CONS 'COMBINATION (CADR Y))
-	      (CADDR Y)
-	      (LIST (CAR X) (CAR Y))))
-	   (CDR X)))
-	A)
-       T) 
 
 (DEFUN BUILDWORD (WORD FEATURES SEMANTICS ROOT) 
-       (PUTPROP WORD FEATURES 'FEATURES)
-       (PUTPROP WORD (OR SMN SEMANTICS) 'SEMANTICS)
-       (AND ROOT (PUTPROP WORD ROOT 'ROOT))
+       (SETF (GET WORD 'FEATURES) FEATURES)
+       (SETF (GET WORD 'SEMANTICS) (OR SMN SEMANTICS))
+       (AND ROOT (SETF (GET WORD 'ROOT) ROOT))
        WORD) 
 
-(DEFUN BUILDWORDLIST FEXPR (A) 
-								       ;DEFINES WORDS
-       (MAPC '(LAMBDA (X) 
-								       ;ROOT IS OPTIONAL
-		      (PRINT (BUILDWORD (CAR X)
-					(CADR X)
-					(CADDR X)
-					(AND (CDDDR X) (CADDDR X)))))
-	     A)) 
-
-(SETQ CARRET '/
-) 
+(SETQ CARRET #\NEWLINE) 
 
 (DEFUN ETNEW NIL 
-       (AND (EQ (CAR WORD) '")
-	    (EQ (CAR (LAST WORD)) '")
+       (AND (EQ (CAR WORD) '\")
+	    (EQ (CAR (LAST WORD)) '\")
 	    (SETQ WRD (READLIST (CDR (REVERSE (CDR WORD)))))
 	    (BUILDWORD WRD
 		       '(NOUN NS)
 		       '((NOUN (NEWWORD)))
 		       NIL))) 
 
-(SETQ FINAL '(/. ? !)) 
+(SETQ FINAL '(\. ? !)) 
 
 (SETQ CONSO '(B C D F G H J K L M N P Q R S T V W X Z)) 
 
@@ -348,18 +266,15 @@
 
 (SETQ LIQUID '(L R S Z V)) 
 
-(SETQ PUNCL '(/. ? : /; " !)) 
+(SETQ PUNCL '(\. ? : \; !)) 
 
-(SETQ RUBOUT (ASCII 127.)) 
+(SETQ RUBOUT #\RUBOUT)
 
-(DEFPROP UNDEFINED
-	 (LAMBDA NIL (PROG2 (PRINC (WORD N)) (ERT UNDEFINED)))
-	 EXPR) 
+(DEFUN UNDEFINED NIL (PROGN (PRINC (WORD N)) (ERT UNDEFINED)))
 
-(DEFUN UPPERCASE-IFY-CHAR (CHAR) (COND ((GREATERP 123. CHAR 96.) (- CHAR 32.)) (T CHAR)))
+(DEFUN UPPERCASE-IFY-CHAR (CHAR) (COND ((CHAR>= #\Z CHAR #\A) (CHAR- CHAR (CODE-CHAR 32))) (T CHAR)))
 
 
 (SETQ VOWEL '(NIL A E I O U Y)) 
 
-(SETQ SPACE '/ ) 
-
+(SETQ SPACE #\SPACE) 

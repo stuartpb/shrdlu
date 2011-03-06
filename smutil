@@ -1,4 +1,4 @@
-(declare (genprefix smutil))
+; (declare (genprefix smutil))
 
 
 ;;;############################################################
@@ -14,10 +14,11 @@
        (PROG (X) 
 	     (OR (SETQ X (GETR 'TIME NODE))
 		 (ERT ISTENSE -- NO TIME REGISTER))
-	     (OR (SETQ X (TENSE? X)) (ERT ISTENSE -- NO TENSE))
+	     (OR (SETQ X (TENSE? X)) (SETQ X '(PRESENT)))
 	     (RETURN (COND ((EQ ARG 'PRESENT)
 			    (MEMBER X
-				    '((PRESENT) (PRESENT PRESENT))))
+				    '((PRESENT) (PRESENT PRESENT))
+				    :TEST #'EQUAL))
 			   ((EQ ARG 'FUTURE)
 			    (EQUAL X '(FUTURE)))
 			   ((EQ ARG 'MODAL)
@@ -28,11 +29,11 @@
 			   (T (ERT ISTENSE -- FUNNY ARG)))))) 
 
 (DEFUN IMPERF? (TSS) 
-       (AND (CDR (SETQ X (TENSE? X))) (EQ (CAR X) 'PRESENT))) 
+       (AND (CDR (SETQ TSS (TENSE? TSS))) (EQ (CAR TSS) 'PRESENT))) 
 
 (DEFUN IMPERF NIL (ISTENSE C 'IMPERF)) 
 
-(DEFUN BUILD FEXPR (%L) 
+(DEFUN-FEXPR BUILD (%L) 
        ;;BUILD CONSTRUCTS AN OSS OR AN RSS FROM ITS ARGUMENTS. 
        ;;; 
        ;;;INPUTS:
@@ -66,6 +67,13 @@
 	      PLAUSIBILITY= DETERMINER= AND= OR= AMBIGUITIES=
 	      RELATIONS= VARIABLE= VARLIST= REL= RSSNODE=
 	      PARSENODE= OSSNODE= NODE= %PROPS) 
+	     (DECLARE (SPECIAL NEGATIVE= REFER= PLNRCODE= MARKERS=
+	                       SYSTEMS= RELMARKERS= PLAUSIBILITY=
+			       DETERMINER= AND= OR= AMBIGUITIES=
+			       RELATIONS= VARIABLE= VARLIST= REL=
+			       RSSNODE= PARSENODE= OSSNODE= TSSNODE=
+			       TENSE= ANSNODE= ANSRSS= ACTION=))
+
 	     (SETQQCHECK T
 			 %L
 			 (SETQ %PROPS '(NEGATIVE= REFER=
@@ -93,7 +101,7 @@
 			 'BUILD)
 	     (AND RSSNODE=
 		  (NOT MARKERS=)
-		  (SETQ MARKERS= '(#RELATION)))
+		  (SETQ MARKERS= '(\#RELATION)))
 	     (AND MARKERS=
 		  (NOT SYSTEMS=)
 		  (SETQ %X (CHECK MARKERS= NIL NIL))
@@ -103,9 +111,9 @@
 			     RSSNODE=
 			     TSSNODE=
 			     ANSNODE=
-			     (ERT /././.BUILD: NO NODE=)))
-	     (MAPC '(LAMBDA (%PROP) (AND (SETQ %X (EVAL %PROP))
-					 (PUTPROP NODE= %X %PROP)))
+			     (ERT \.\.\.BUILD\: NO NODE=)))
+	     (MAPC #'(LAMBDA (%PROP) (AND (SETQ %X (EVAL %PROP))
+					 (SETF (GET NODE= %PROP) %X)))
 		   %PROPS)
 	     (AND BUILD-SEE ((LAMBDA (DPSTOP) (DP NODE=)) SMN-STOP))
 	     (RETURN NODE=))) 
@@ -113,20 +121,21 @@
 (DEFUN NEWCOPY (OSS) 
        (PROG (OLD NEW) 
 	     (SETQ NEW (MAKESYM 'OSS))
-	     (SETQ OLD (CDR OSS))
+	     (SETQ OLD (SYMBOL-PLIST OSS))
 								       ;WATCH OUT -- THIS IS IMPLEMENTATION DEPENDENT,
 	UP   (COND ((NULL OLD)
 								       ;AND GETS THE ENTIRE PROPERTY LIST IN OUR LISP.
-		    (PUTPROP NEW C 'PARSENODE=)
+		    (SETF (GET NEW 'PARSENODE=) C)
 		    (RETURN NEW))
 		   ((EQ (CAR OLD) 'PNAME))
-		   ((PUTPROP NEW (CADR OLD) (CAR OLD))))
+		   ((SETF (GET NEW (CAR OLD)) (CADR OLD))))
 	     (SETQ OLD (CDDR OLD))
 	     (GO UP))) 
 
 ;;;=============================================================================
 
-(DEFUN RELATION FEXPR (%DEFL) 
+(DEFUN-FEXPR RELATION (%DEFL) 
+       (DECLARE (SPECIAL %DEFL))
 
        ;;; CONSTRUCTS RSS'S FOR GARDEN VARIETY VERBS.  USED IN DEFINITION OF SAME.
        ;;;
@@ -158,23 +167,22 @@
        ;;;SIDE-EFFECTS:
        ;;;     CREATES AN RSS BY CALLING BUILD
        (ITERATE
-	'(LAMBDA ARGLIST 
-	  (PROG (SMCOMP SMSUB SMOB1 SMOB2 SMOBL MARKERS:
-		 RESTRICTIONS: PLAUSIBILITY: REL: PARAPHRASE:
-		 RELMARKERS: RSSNAME PROCEDURE: #1 #2 #3 %NEWRSS
+	'(LAMBDA (ARG1 ARG2 ARG3 ARG4 ARG5 ARG6)
+	  (PROG (SMCOMP SMSUB SMOB1 SMOB2 SMOBL MARKERS\:
+		 RESTRICTIONS\: PLAUSIBILITY\: REL\: PARAPHRASE\:
+		 RELMARKERS\: RSSNAME PROCEDURE\: \#1 \#2 \#3 %NEWRSS
 		 %OSSNODE) 
-		(SETQ %DEF
-		      (ARG 1.)
-		      SMSUB
-		      (ARG 2.)
-		      SMOB1
-		      (ARG 3.)
-		      SMOB2
-		      (ARG 4.)
-		      SMOBL
-		      (ARG 5.)
-		      SMCOMP
-		      (ARG 6.))
+		(DECLARE (SPECIAL SMCOMP SMSUB SMOB1 SMOB2 SMOBL
+		                  RESTRICTIONS\: PROCEDURE\:
+		                  PLAUSIBILITY\: PARAPHRASE\:
+				  MARKERS\: REL\: RELMARKERS\:
+				  \#1 \#2 \#3))
+		(SETQ %DEF ARG1
+		      SMSUB ARG2
+		      SMOB1 ARG3
+		      SMOB2 ARG4
+		      SMOBL ARG5
+		      SMCOMP ARG6)
 								       ;AN LEXPR IS USED HERE IN ORDER TO GET AROUND
 		       ;THE LIMITATION OF FIVE EXPR ARGUMENTS IN
 		       ;COMPILED CODE.   NOTICE THAT WITHIN THIS LAMBDA
@@ -189,18 +197,18 @@
 								       ;DICTIONARY WRITERS TO USE THESE SELF SAME NAMES
 			    %DEF
 								       ;IN WRITING DEFINITIONS, A SIMPLY TERRIBLE IDEA.
-			    '(RESTRICTIONS: PROCEDURE:
-					    PLAUSIBILITY:
-					    PARAPHRASE:
-					    MARKERS:)
+			    '(RESTRICTIONS\: PROCEDURE\:
+					    PLAUSIBILITY\:
+					    PARAPHRASE\:
+					    MARKERS\:)
 			    'RELATION)
 								       ;(EVAL ...) DECODES KEYWORD ARGUMENTS. SETQQ
 								       ;EFFECTIVLY QUOTES BOTH PAIRS
 		;; RESTRICTIONS: IS EXPANDED HERE PUTING IN IMPLICIT
 		;;REGISTER REFERENCES SO THAT IT CAN BE UNIFORMLY
 		;;GOBBLED BELOW
-		(SETQ RESTRICTIONS:
-		      (MAPCAR '(LAMBDA (%RESTRICTNAM %MARKL %NUM) 
+		(SETQ RESTRICTIONS\:
+		      (MAPCAR #'(LAMBDA (%RESTRICTNAM %MARKL %NUM) 
 								       ;MARKL IS A SINGLE MARKER LIST FROM ON OF THE
 				       ((LAMBDA (X) 
 						(SET %NUM
@@ -214,8 +222,8 @@
 								       ;SMOBL, SMCOMP, .... WHICH REFERS TO REGISTERS  
 						     %MARKL)))))
 			      '(SMSUB SMOB1 SMOB2)
-			      RESTRICTIONS:
-			      '(#1 #2 #3)))
+			      RESTRICTIONS\:
+			      '(\#1 \#2 \#3)))
 								       ;ELSEWHERE IN THE PROGRAM WHOSE MARKERS MUST BE
 		(AND ;COMPATIBLE WITH %MARKL AS CHECKED BELOW.%NUM IS
 		       ;THE NUMBER WHICH WILL BE USED TO SUBSTITUTE IN
@@ -223,14 +231,14 @@
 		 ;; CHECK THAT THIS DEFINITION SENSE MEETS ALL OF THE
 		 ;;RESTRICTIONS SET FORTH IN THE DEFINITION UNDER
 		 ;;RESTRICTIONS:.
-		 (ERRSET
+		(CATCH 'STOP
 		  (MAPC 
-		   '(LAMBDA (%MARKL) 
+		   #'(LAMBDA (%MARKL) 
 								       ;ENCLOSED IN A ERRSET SO THAT THE FAILURE OF A
 		     (PROG (OSS X CHECK) 
 			   (SETQ OSS (EVAL (CAR %MARKL)))
 			   (AND (SETQ X (CHECKREL OSS))
-				(SETQ REL: (CAR X)))
+				(SETQ REL\: (CAR X)))
 			   (COND
 			    ((NOT (AND (OR (NULL (CDDR %MARKL))
 								       ;CHECK CAN CAUSE IMMEDIATE ESCAPE FROM THE MAPC
@@ -242,13 +250,13 @@
 								       ;FURTHER PROCESSING OF THIS DEFINITION SENSE
 						    (SYSTEMS? OSS)))))
 								       ;TEMPORARY STORAGE ON THE PROPERTY LIST OF TEMP
-			     (ERR NIL))
+			     (THROW 'STOP NIL))
 								       ;USED TO AVOID SEARCHING FOR THESE ITEMS ON THE
-			    ((EQ OSS REL:)
+			    ((EQ OSS REL\:)
 								       ;ONE HAND OR THE CONFLICT OF NAMES BETWEEN THE
-			     (SETQ RELMARKERS: CHECK)))))
+			     (SETQ RELMARKERS\: CHECK)))))
 								       ;THE MARKERS RESULTING FROM CHECKING THE REL ARE
-		   RESTRICTIONS:))
+		   RESTRICTIONS\:))
 								       ;SAVED TO PUT ON IT LATER WHEN THE CLAUSE IS
 		       ;RELATED. SUBJECT RESTRICTION MARKERS USED IN
 		       ;THE DEFINITION AND THE REGISTERS OF THE SAME
@@ -266,10 +274,10 @@
 								       ;OF RSS NODE NAME.  IN THE CALL TO BUILD THE
 		   MARKERS=
 								       ;ITEMS ENDING IN = ARE KEYWORDS WHOSE VALUE IS
-		   MARKERS:
+		   MARKERS\:
 								       ;THE
 		   VARIABLE=
-		   ((LAMBDA (X) (PUTPROP X X 'RSSVAR))
+		   ((LAMBDA (X) (SETF (GET X 'RSSVAR) X))
 								       ;FOLLWING ITEM. MARKERS:, OF COURSE IS A
 		    (MAKESYM 'EVX))
 		   PARSENODE=
@@ -278,36 +286,36 @@
 		   (REVERSE
 								       ;SEND TO BUILD FOR MARKERS= THE VALUE SENT TO
 		    (MAPCAR 
-		     '(LAMBDA (%PLNRPHRASE) 
+		     #'(LAMBDA (%PLNRPHRASE) 
 								       ;RELATION FOR MARKERS:   THE PARSENODE IS THE
 			      (PLNR-NUMSUB '<<<RELATION-ERROR>>>
 								       ;CURRENT NODE ***, #1, #2, AND #3 SUBSTITUTIONS
 					   %PLNRPHRASE))
 								       ;DONE .  THIS IS FIRST STEP IN BUILDING PLANNER
-		     (EVALCHECK PROCEDURE:)))
+		     (EVALCHECK PROCEDURE\:)))
 		   REL=
-		   REL:
+		   REL\:
 								       ;CODE.
 		   NEGATIVE=
 		   (AND (CQ NEG) T)
 		   RELMARKERS=
-		   RELMARKERS:
+		   RELMARKERS\:
 		   PLAUSIBILITY=
-		   (PLUS (PLAUSIBILITY? SMSUB)
+		   (+ (PLAUSIBILITY? SMSUB)
 								       ;NUMSUB IS THE ****, #!, #", #3 SUBSTITUTION
-			 (PLAUSIBILITY? SMOB1)
+		      (PLAUSIBILITY? SMOB1)
 								       ;FUNCTION %PLNRPHRASE IS ONE CHUNK OF CONDENSED
-			 (PLAUSIBILITY? SMOB2)
+		      (PLAUSIBILITY? SMOB2)
 								       ;PLANNER CODE LIKE (#COLOR *** #RED)
-			 (OR (EVAL PLAUSIBILITY:) 0.))
+		      (OR (EVAL PLAUSIBILITY\:) 0.))
 		   AMBIGUITIES=
 		   (APPEND
-		    (AMBIGUITIES? #1)
-		    (AMBIGUITIES? #2)
-		    (AMBIGUITIES? #3)
-		    (AND PARAPHRASE:
+		    (AMBIGUITIES? \#1)
+		    (AMBIGUITIES? \#2)
+		    (AMBIGUITIES? \#3)
+		    (AND PARAPHRASE\:
 			 (LIST (LIST RSSNAME
-				     PARAPHRASE:
+				     PARAPHRASE\:
 				     WORD-BEING-INTERPRETED)))))))
 		(RETURN %NEWRSS)))
 	%DEFL
@@ -345,22 +353,21 @@
 	     (SETQ BACKREF2 BACKREF)
 	     (SETQ BACKREF NIL)
 	     (SETQ LASTREL (REL? ANSRSS))
-	     (MAPC '(LAMBDA (PRONOUN) (PUTPROP PRONOUN
+	     (MAPC #'(LAMBDA (PRONOUN) (SETF (GET PRONOUN 'LASTBIND)
 					       (GET PRONOUN
-						    'BIND)
-					       'LASTBIND)
+						    'BIND))
 				      (REMPROP PRONOUN 'BIND))
 		   '(IT THEY ONE))
 	     (OR
 	      (CQ MODAL)
 	      (CQ DECLAR)
-	      (MAP 
-	       '(LAMBDA (BACKNODE) 
+	      (MAPL
+	       #'(LAMBDA (BACKNODE) 
 		 (COND ((CDR (SM BACKNODE))
 								       ;TRUE IF NODE HAD MULTIPLE INTERPRETATIONS
 			(PRINT (SM BACKNODE))
 			(SETR 'SEMANTICS
-			      (ERT DOBACKREF:
+			      (ERT DOBACKREF\:
 				   RETURN
 				   AN
 				   OSS
@@ -371,15 +378,14 @@
 		  ((REFER? (CAR (SM BACKNODE))))
 								       ;IF NODE HAS REFERENT, FINE
 		  (ELSE
-		   (PUTPROP (CAR (SM BACKNODE))
+		   (SETF (GET (CAR (SM BACKNODE)) 'REFER=)
 			    (OR (GET (VARIABLE? (CAR (SM BACKNODE)))
 				     'BIND)
-				(ERT DOBACKREF:
+				(ERT DOBACKREF\:
 				     RETURN
 				     REFERENT
 				     FOR
-				     BACKNODE))
-			    'REFER=))))
+				     BACKNODE))))))
 	       BACKREF2))
 
 	     ;;; A FEW MISSING PIECES
@@ -392,16 +398,15 @@
        ;;EVALCHECK CHECKS FOR THE PRESENCE OF (#EVAL (MUMBLE ...)...)
        ;;IN THE INPUT S-EXPRESSION L.  IF IT FINDS ONE THEN THE
        ;;EXPRESSION MUMBLE IS EVALUATED AND REPACES (#EVAL ...),
-       ;;OTHERWISE L IS RETURNED JUST 
-THE WAY IT WAS.  HENCE THIS
+       ;;OTHERWISE L IS RETURNED JUST THE WAY IT WAS.  HENCE THIS
        ;;FUNCTION IS THE INVERSE OF QUOTE. 
        (COND ((ATOM L) L)
-	     ((EQ (CAR L) '#EVAL) (EVAL (CADR L)))
+	     ((EQ (CAR L) '\#EVAL) (EVAL (CADR L)))
 	     (L))) 
 
 ;;;=========================================================================
 
-(DEFUN ITERATE FEXPR (%L) 
+(DEFUN-FEXPR ITERATE (%L) 
        ;; GENERALIZED MAPPING FUNCTION.  APPLIES FUNCTION TO THE
        ;;CARTESIAN PRODUCT OF N LISTS GIVEN AS ARGUMENTS.
        ;;;INPUTS:
@@ -416,7 +421,9 @@ THE WAY IT WAS.  HENCE THIS
        ;;RESULTS IN A LIST OF ATOMS, THE RESULTS IS STILL A LIST OF
        ;;ATOMS.  IF THE APPLICATION RESULTS IN NIL, THE NIL VANISHES
        ;;FROM THE RESULTANT LIST.
-       (PROG (%X %XL) (RETURN (EVAL (ITERATEX (CAR %L) (CDR %L)))))) 
+       (PROG (%X %XL)
+	     (DECLARE (SPECIAL %XL))
+             (RETURN (EVAL (ITERATEX (CAR %L) (CDR %L)))))) 
 								       ;THIS SHOULD BECOME A MACRO SO THAT ITERATE
 		       ;TAILORS A MAPPING FUNCTION FOR EACH APPLICATION
 								       ;WHICH IS THEN COMPILED
@@ -476,7 +483,7 @@ THE WAY IT WAS.  HENCE THIS
        ;;SIDE-EFFECTS).
        (PROG (ANS F) 
 	     (AND (NULL L) (SETQ L '(NIL)))
-	A    (COND ((NULL (SETQ F ((EVAL 'FN) (CAR L)))))
+	A    (COND ((NULL (SETQ F (APPLY FN (LIST (CAR L))))))
 		   ((ATOM F) (SETQ ANS (NCONC ANS (CONS F NIL))))
 		   ((SETQ ANS (APPEND ANS F))))
 	     (SETQ L (CDR L))
@@ -498,7 +505,7 @@ THE WAY IT WAS.  HENCE THIS
        (PROG (DUMMY) ;DUMMY IS USED TO ESCAPE FROM A SYSTEM ERROR
 	A    (COND ((NULL L) (RETURN T)))
 								       ;WHICH OCCURS WHEN NIL IS USED			
-	     ((EVAL 'FN) (CAR L) (CADR L))
+	     (APPLY FN (LIST (CAR L) (CADR L)))
 								       ;	   FN APPLIED TO TOP TWO ELEMENTS. EVAL
 	     (SETQ L (CDDR L))
 								       ;IS TO AVOID CONFLICT WITH FUNCTION REALLY NAMED
@@ -517,14 +524,15 @@ THE WAY IT WAS.  HENCE THIS
        ;;ANY ASSERTION IS A SENTENCE NUMBER WHEN IT WAS MOST RECENTLY
        ;;MENTIONED.
        (COND ((NULL WHO))
-	     ((EQ WHO 'HE) (GET X 'WHO))
-	     ((SETQ X (GET X 'WHO))
-	      (NOT (OR (LESSP X (CAR WHO))
-		       (GREATERP X (CADR WHO))))))) 
+	     ((EQ WHO 'HE) (GETF (CDR X) 'WHO))
+	     ((SETQ X (GETF (CDR X) 'WHO))
+	      (NOT (OR (< X (CAR WHO))
+		       (> X (CADR WHO))))))) 
 
 ;;;============================================================
 
-(DEFUN OBJECT FEXPR (%DEFL) 
+(DEFUN-FEXPR OBJECT (%DEFL) 
+	(DECLARE (SPECIAL %DEFL))
 								       ;%DEFL IS THE LIST OF DEFINITION SENSES 
        ;; CONSTRUCTS OSS FOR GARDEN VARIETY NOUNS AND ADJECTIVES. 
        ;;USED IN DEFINITIONS.
@@ -553,10 +561,14 @@ THE WAY IT WAS.  HENCE THIS
 	       (ITERATE
 								       ;ITERATE LOOP.
 		'(LAMBDA (%OSS %DEF) 
+		  (DECLARE (SPECIAL %OSS))
 								       ;%OSS IS A SINGLE OSS NODE NAME PICKED OFF OF
-		  (PROG (%OSSNODE %CHKRESULT MARKERS: SYSTEMS:
-			 PLAUSIBILITY: DET: RELATIONS: PARAPHRASE:
-			 PROCEDURE:) 
+		  (PROG (%OSSNODE %CHKRESULT MARKERS\: SYSTEMS\:
+			 PLAUSIBILITY\: DET\: RELATIONS\: PARAPHRASE\:
+			 PROCEDURE\:) 
+			(DECLARE (SPECIAL %CHKRESULT PARAPHRASE\:
+			                  PLAUSIBILITY\: PROCEDURE\:
+					  MARKERS\:))
 								       ;SM. %DEF IS A SINGLE DEFINITION SENSE PICKED
 								       ;OFF OF %DEFL. 
 
@@ -565,9 +577,9 @@ THE WAY IT WAS.  HENCE THIS
 			;;;***************
 			(SETQQCHECK NIL
 				    %DEF
-				    '(MARKERS: PLAUSIBILITY:
-					       PARAPHRASE:
-					       PROCEDURE:)
+				    '(MARKERS\: PLAUSIBILITY\:
+					       PARAPHRASE\:
+					       PROCEDURE\:)
 				    'OBJECT)
 
 			;;;****************
@@ -576,7 +588,7 @@ THE WAY IT WAS.  HENCE THIS
 			;;;****************
 			(AND
 			 (SETQ %CHKRESULT
-			       (CHECK MARKERS:
+			       (CHECK MARKERS\:
 				      (MARKERS? %OSS)
 				      (SYSTEMS? %OSS)))
 
@@ -606,9 +618,9 @@ THE WAY IT WAS.  HENCE THIS
 			   (NCONC
 			    (REVERSE
 			     (MAPCAR 
-			      '(LAMBDA (%PLNRPHRASE) 
+			      #'(LAMBDA (%PLNRPHRASE) 
 				       (PLNR-NUMSUB %OSS %PLNRPHRASE))
-			      (EVALCHECK PROCEDURE:)))
+			      (EVALCHECK PROCEDURE\:)))
 			    (RELATIONS? %OSS))
 			   REL=
 			   (REL? %OSS)
@@ -616,12 +628,12 @@ THE WAY IT WAS.  HENCE THIS
 			   (APPEND
 			    (AMBIGUITIES? %OSS)
 			    (AND
-			     PARAPHRASE:
+			     PARAPHRASE\:
 			     (LIST (LIST %OSS
-					 PARAPHRASE:
+					 PARAPHRASE\:
 					 WORD-BEING-INTERPRETED))))
 			   PLAUSIBILITY=
-			   (PLUS (OR (EVAL PLAUSIBILITY:) 0.)
+			   (+ (OR (EVAL PLAUSIBILITY\:) 0.)
 								       ; THE OSS NAME PROVIDES A UNIQUE LABEL FOR WHERE
 				 (PLAUSIBILITY? %OSS)))))))
 								       ;THE AMBIGUITY OCCURRED FOR LATER COMPARISON
@@ -671,23 +683,22 @@ THE WAY IT WAS.  HENCE THIS
 
 ;;;============================================================
 
-(DEFUN VALUEPUT NIL (PUTPROP THVALUE SENTNO 'WHO)) 
+(DEFUN VALUEPUT NIL (SETF (GETF (CDR (LIST THVALUE)) 'WHO) SENTNO)) 
 
 (DEFUN PLNR-THCONSIFY (VARLIST EXP BODY) 
        ;;GENERATES A CONSEQUENT THEOREM.
        (PROG (TH) 
 	     (SETQ TH (MAKESYM 'THEOREM))
-	     (PUTPROP TH
+	     (SETF (GET TH 'THEOREM)
 		      (COND ((EQ (CAR BODY) 'THPROG)
 			     (NCONC (LIST 'THCONSE
-					  (UNION VARLIST (CADR BODY))
+					  (SHRDLU-UNION VARLIST (CADR BODY))
 					  EXP)
 				    (CDDR BODY)))
 			    (T (LIST 'THCONSE
 				     VARLIST
 				     EXP
-				     BODY)))
-		      'THEOREM)
+				     BODY))))
 	     (RETURN TH))) 
 
 (DEFUN PLNR-FINDIFY (MODE VARIABLE VARLIST BODY) 
@@ -719,8 +730,8 @@ THE WAY IT WAS.  HENCE THIS
        (COND ((NUMBERP X) X)
 	     ((MEMQ X '(NS NPL SG-PL)) 1.)
 	     ((EQ (CAR X) 'EXACTLY)
-	      (LIST (CADR X) (ADD1 (CADR X)) NIL))
-	     ((EQ (CAR X) '>) (ADD1 (CADR X)))
+	      (LIST (CADR X) (+ 1 (CADR X)) NIL))
+	     ((EQ (CAR X) '>) (+ 1 (CADR X)))
 	     ((EQ (CAR X) '<) (LIST 0. (CADR X) NIL))
 	     ((ERTERR PLNR-FINDSPEC -- FUNNY SPECIFICATION)))) 
 
@@ -777,8 +788,9 @@ THE WAY IT WAS.  HENCE THIS
        ;;SETS UP A THPROG OR THE SIMPLEST EQUIVALENT EXPRESSION FOR
        ;;THE PARTICULAR CASE.  BODY IS A LIST OF EXPRESSIONS
        (PROG (NEWBODY) 
+             (DECLARE (SPECIAL NEWBODY))
 	     (OR BODY (RETURN NIL))
-	     (MAPC '(LAMBDA (X) 
+	     (MAPC #'(LAMBDA (X) 
 			    (COND ((EQ (CAR X) 'THPROG)
 				   (COND ((MEET VARLIST (CADR X))
 					  (PLNR-NEWBODY X))
@@ -805,7 +817,7 @@ THE WAY IT WAS.  HENCE THIS
        ;; THIS IS USED BY PLNR-NUMSUB TO HAVE THE VARIABLE NAME
        ;;SUBSTITUTED FOR THE OSS WHICH IS THE REL OF A PARTICULAR
        ;;EXPRESSION.
-       (COND ((MEMQ OSS RELLIST) (SETQ REL: OSS)) (OSS))) 
+       (COND ((MEMQ OSS RELLIST) (SETQ REL\: OSS)) (OSS))) 
 
 ;;;============================================================
 
@@ -826,16 +838,16 @@ THE WAY IT WAS.  HENCE THIS
        ;;;     *TIME      - CURRENT TIME
        ;;;VALUE:
        ;;;THE CONDENSED PLANNER CODE AFTER THE SUBSTITUTIONS HAVE BEEN MADE
-       (MAPCAR (FUNCTION (LAMBDA (%ELEMENT) 
+       (MAPCAR #'(LAMBDA (%ELEMENT) 
 								       ;%ELEMENT IS AN ATOM OF THE PHRASE
-				 (COND ((MEMQ %ELEMENT
-					      '(#1 #2 #3))
-					(PLNR-NUMREL (EVAL %ELEMENT)))
-				       ((EQ %ELEMENT '***) %ME)
-				       ((EQ %ELEMENT '*TIME)
-					TIME)
+			 (COND ((MEMQ %ELEMENT
+				      '(\#1 \#2 \#3))
+				(PLNR-NUMREL (EVAL %ELEMENT)))
+			       ((EQ %ELEMENT '***) %ME)
+			       ((EQ %ELEMENT '*TIME)
+				TIME)
 								       ; GETS THE CURRENT TIME
-				       (%ELEMENT))))
+			       (%ELEMENT)))
 	       (EVALCHECK %PLNRPHRASE))) 
 
 ;;;============================================================
@@ -859,8 +871,7 @@ THE WAY IT WAS.  HENCE THIS
 			       (%ELEMENT))))))) 
 								       ;THIS INSTANCE OF IT HAS.  (LENGTH ...) COMPUTES
 		       ;THE NUMBER OF ARGUMENTS + 1 AND THE (ASSQ ...)
-		       ;RETRIEVES THE 
-APPROPRIATE RECOMMENDATION USING
+		       ;RETRIEVES THE APPROPRIATE RECOMMENDATION USING
 		       ;THIS NUMBER.  IF THERE IS NO SUCH  NUMBER,
 		       ;NUMBERP FAILS AND SOME ARBITARY FUNCTION WHICH
 		       ;IS STORED OUT THERE IS EVALUATED TO GIVE THE
@@ -871,20 +882,20 @@ APPROPRIATE RECOMMENDATION USING
 (DEFUN PLNR-REMTIME (EXP) 
        ;;REMOVES ALL PRESENT TENSE TIME STRUCTURES
        ((LAMBDA (Y) 
-	 (DELQ
+	 (DELETE
 	  Y
 	  (MAPCAR 
-	   '(LAMBDA (X) 
+	   #'(LAMBDA (X) 
 	     (COND ((NOT (ATOM X)) X)
 		   ((TSS? X)
 		    (COND ((AND (TENSE? X)
 				(NOT (MEMBER (TENSE? X)
 					     '((PRESENT PRESENT)
-					       (MODAL) (PRESENT)))))
+					       (MODAL) (PRESENT)) :TEST #'EQUAL)))
 			   X)
 			  (Y)))
 		   (X)))
-	   EXP)))
+	   EXP) :TEST #'EQ))
 	'(T)))       ;Y IS BOUND TO A UNIQUE POINTER SO IT CAN'T
 		       ;POSSIBLY SCREW ANYTHING IN THE EXPRESSSION WHEN
 								       ;IT DOES THE DELETION.  DELQ USES EQ.
@@ -900,26 +911,27 @@ APPROPRIATE RECOMMENDATION USING
 (DEFUN COMPARE-BUILD (NODE DEGREE) 
        ;;USED BY SMADJG-PREPG TO BUILD A PSUEDO VERB FOR THE
        ;;COMPARATIVE.  SMCL1 IS THEN CALLED
-       (PROG (RESTRICTIONS: DIMENSION: DIRECTION:) 
+       (PROG (RESTRICTIONS\: DIMENSION\: DIRECTION\:) 
+             (DECLARE (SPECIAL RESTRICTIONS\: DIMENSION\:
+	                       DIRECTION\:))
 								       ;THESE ARE THE POSSIBLE PARTS OF A MEASURE
 	     (SETQQCHECK NIL
 			 (CDR (FINDMEASURE NODE))
-			 '(RESTRICTIONS: DIMENSION: DIRECTION:)
+			 '(RESTRICTIONS\: DIMENSION\: DIRECTION\:)
 			 'MEASURE)
 								       ;DEFINITION
-	     (PUTPROP 'COMPARE-PSEUDO-VERB
+	     (SETF (GET 'COMPARE-PSEUDO-VERB 'SEMANTICS)
 		      (LIST 'RELATION
-			    (LIST 'RESTRICTIONS:
-				  (LIST (LIST RESTRICTIONS:)
-					(LIST RESTRICTIONS:))
-				  'PROCEDURE:
+			    (LIST 'RESTRICTIONS\:
+				  (LIST (LIST RESTRICTIONS\:)
+					(LIST RESTRICTIONS\:))
+				  'PROCEDURE\:
 				  (LIST (LIST DEGREE
-					      DIMENSION:
-					      (COND (DIRECTION: '#1)
-						    ('#2))
-					      (COND (DIRECTION: '#2)
-						    ('#1))))))
-		      'SEMANTICS)
+					      DIMENSION\:
+					      (COND (DIRECTION\: '\#1)
+						    ('\#2))
+					      (COND (DIRECTION\: '\#2)
+						    ('\#1)))))))
 	     (RETURN '(COMPARE-PSEUDO-VERB)))) 
 
 ;;;=============================================================
@@ -929,7 +941,7 @@ APPROPRIATE RECOMMENDATION USING
        (COND ((SETQ X (ASSOC 'MEASURE
 			     (GET (ROOT (NB NODE)) 'SEMANTICS)))
 	      (CADR X))
-	     ((GLOBAL-ERR (APPEND '(I DON"T
+	     ((GLOBAL-ERR (APPEND '(I DON\"T
 				      KNOW
 				      HOW
 				      TO
@@ -942,13 +954,13 @@ APPROPRIATE RECOMMENDATION USING
 
 ;;;=============================================================
 
-(DEFUN MEASURE FEXPR (MEAS) 
+(DEFUN-FEXPR MEASURE (MEAS) 
        ;;USED TO GENERATE ORDINALS -- IT IS CALLED WHEN A MEASURE
        ;;DEFINITION IS EVALLED
-       (APPLY 'OBJECT
-	      (LIST (LIST 'MARKERS:
-			  (CADR (MEMQ 'RESTRICTIONS: MEAS))
-			  'PROCEDURE:
+       (APPLY-OBJECT
+	      (LIST (LIST 'MARKERS\:
+			  (CADR (MEMQ 'RESTRICTIONS\: MEAS))
+			  'PROCEDURE\:
 			  (LIST (LIST '*ORDINAL* MEAS)))))) 
 
 ;;;=============================================================
@@ -956,7 +968,9 @@ APPROPRIATE RECOMMENDATION USING
 (DEFUN PLNR-DESCRIBE (EXPS VAR FREEVARS) 
        ;;BUILDS THE PLANNER DESCRIPTION, IGNORING THE QUANTIFIER
        ;;ACOUNTS FOR ORDINALS, SUBSTS, ETC.
+       (DECLARE (SPECIAL FREEVARS))
        (PROG (ORDINAL BODY X) 
+             (DECLARE (SPECIAL ORDINAL))
 	UP   (COND ((NULL EXPS)
 		    (RETURN (COND (ORDINAL (ORDMAKE ORDINAL VAR BODY))
 				  ((PLNR-PROGIFY NIL BODY)))))
@@ -966,7 +980,7 @@ APPROPRIATE RECOMMENDATION USING
 					     (GET VAR 'USED)
 					     (PLNR-VAR VAR))))
 			'*ORDINAL*))
-		   ((AND (CDR EXPS) (EQ (CAR X) '#SUBST))
+		   ((AND (CDR EXPS) (EQ (CAR X) '\#SUBST))
 								       ;A SUBST DEFINITION IF IT IS THE ONLY THING IS
 		    (MAPC2 '(LAMBDA (X Y) (SETQ EXPS
 								       ;TO BE APPLIED TO THE OSS TO WHICH THIS RSS WILL
@@ -985,19 +999,21 @@ APPROPRIATE RECOMMENDATION USING
 (DEFUN RELFIND (NODE) 
        ;;LOOKS FOR THE REL OF A POLAR
        (PROG (REL) 
-	     (ERRSET (MAP '(LAMBDA (X) (COND ((ISQ X NG)
+	  (CATCH 'DONE
+	     (MAPL #'(LAMBDA (X) (DECLARE (SPECIAL X))
+	                         (COND ((ISQ X NG)
 					      (AND (NOT (ISQ X COMP))
 						   (NOT (ISQ X DEF))
 						   (SETQ REL X)
-						   (ERR NIL)))
+						   (THROW 'DONE NIL)))
 					     ((ISQ X LOBJ)
 					      (AND (ISQ (H X) INDEF)
 						   (SETQ REL X)
-						   (ERR NIL)))
+						   (THROW 'DONE NIL)))
 					     ((ISQ X PREPG)
 					      (AND (ISQ (H X) INDEF)
 						   (SETQ REL (H X))
-						   (ERR NIL)))))
+						   (THROW 'DONE NIL)))))
 			  (REVERSE (H NODE))))
 								       ;IT GOESFROM THE BEGINNINGOF THE SENTENCE
 	     (OR REL
@@ -1036,15 +1052,16 @@ APPROPRIATE RECOMMENDATION USING
 ;;;=============================================================
 
 (DEFUN COMPARE-PROC (VAR NEWVAR ORDINAL) 
-       (PROG (RESTRICTIONS: DIRECTION: DIMENSION:) 
+       (PROG (RESTRICTIONS\: DIRECTION\: DIMENSION\:) 
+             (DECLARE (SPECIAL RESTRICTIONS\: DIRECTION\: DIMENSION\:))
 	     (SETQQCHECK NIL
 			 ORDINAL
-			 '(RESTRICTIONS: DIRECTION: DIMENSION:)
+			 '(RESTRICTIONS\: DIRECTION\: DIMENSION\:)
 			 'MEASURE)
-	     (RETURN (LIST '#MORE
-			   DIMENSION:
-			   (PLNR-VAR (COND (DIRECTION: NEWVAR) (VAR)))
-			   (PLNR-VAR (COND (DIRECTION: VAR)
+	     (RETURN (LIST '\#MORE
+			   DIMENSION\:
+			   (PLNR-VAR (COND (DIRECTION\: NEWVAR) (VAR)))
+			   (PLNR-VAR (COND (DIRECTION\: VAR)
 					   (NEWVAR))))))) 
 
 ;;;=============================================================
@@ -1057,13 +1074,13 @@ APPROPRIATE RECOMMENDATION USING
        ;;THE EVENT IS NON-NIL ONLY IF THE EVENT-NAME IS TO BE
        ;;INCLUDED IN THE EXPANSION OF THE EXPRESSION.
        (COND
-	((RSS? EXP)
+	((AND (ATOM EXP) (RSS? EXP))
 	 (COND ((AND? EXP)
 		(PLNR-PROGIFY NIL
-			      (MAPCAR '(LAMBDA (X) (EXPAND X NIL))
+			      (MAPCAR #'(LAMBDA (X) (EXPAND X NIL))
 				      (AND? EXP))))
 	       ((OR? EXP)
-		(PLNR-ORIFY (MAPCAR '(LAMBDA (X) (EXPAND X NIL))
+		(PLNR-ORIFY (MAPCAR #'(LAMBDA (X) (EXPAND X NIL))
 				    (OR? EXP))))
 	       ((PLNR-NOTIFY (NEGATIVE? EXP)
 			     (PLNR-DESCRIBE (RELATIONS? EXP)
@@ -1072,7 +1089,7 @@ APPROPRIATE RECOMMENDATION USING
 						  FREEVARS))))))
 	((ATOM EXP) (BUG EXPAND - ATOMIC MODIFIER))
 	((EQ (CAR EXP) '*ORDINAL*)
-	 (COND (ORDINAL (GLOBAL-ERR '(I CAN"T
+	 (COND (ORDINAL (GLOBAL-ERR '(I CAN\"T
 					HANDLE
 					TWO
 					ORDINALS
@@ -1081,15 +1098,16 @@ APPROPRIATE RECOMMENDATION USING
 					AT
 					ONCE)))
 	       ((SETQ ORDINAL (CADR EXP)) '*ORDINAL*)))
-	((EQ (CAR EXP) '#SUBST)
-	 (ERT EXPAND - IS #SUBST BEING HANDLED BY SOMEONE ELSE?)
+	((EQ (CAR EXP) '\#SUBST)
+	 (ERT EXPAND - IS \#SUBST BEING HANDLED BY SOMEONE ELSE?)
 	 EXP)
 	((PROG (BODY QUANTIFIER CHOICE VAR MULTIPLE) 
+	       (DECLARE (SPECIAL QUANTIFIER))
 	       (SETQ MULTIPLE (EVAL (GET (CAR EXP) 'MULTIPLE)))
 	       (SETQ 
 		EXP
 		(MAPCAR 
-		 '(LAMBDA (X) 
+		 #'(LAMBDA (X) 
 		   (COND
 		    ((OR (NOT (ATOM X)) (NOT (OR (RSS? X) (OSS? X))))
 		     X)
@@ -1102,7 +1120,7 @@ APPROPRIATE RECOMMENDATION USING
 			   ((CAR (REFER? X)))))
 		    ((MEMQ (VARIABLE? X) FREEVARS)
 		     (AND (RSSVAR? (VARIABLE? X))
-			  (PUTPROP (VARIABLE? X) T 'USED))
+			  (SETF (GET (VARIABLE? X) 'USED) T))
 		     (PLNR-VAR (VARIABLE? X)))
 		    ((SETQ CHOICE (AND? X))
 		     (ERQSET 'AND)
@@ -1115,7 +1133,7 @@ APPROPRIATE RECOMMENDATION USING
 		     '*OR*)
 		    ((COND ((RSS? X)
 			    (ERQSET 'EVENT)
-			    (PUTPROP (VARIABLE? X) T 'USED))
+			    (SETF (GET (VARIABLE? X) 'USED) T))
 			   ((MEMQ (QUANTIFIER? X) '(ALL NO))
 			    (ERQSET (QUANTIFIER? X))
 			    T)
@@ -1144,14 +1162,14 @@ APPROPRIATE RECOMMENDATION USING
 		 ((NULL QUANTIFIER) (PLNR-GOALIFY EXP))
 		 ((EQ QUANTIFIER 'AND)
 		  (PLNR-PROGIFY NIL
-				(MAPCAR '(LAMBDA (X) 
+				(MAPCAR #'(LAMBDA (X) 
 						 (EXPAND (SUBST X
 								'*AND*
 								EXP)
 							 NIL))
 					CHOICE)))
 		 ((EQ QUANTIFIER 'OR)
-		  (PLNR-ORIFY (MAPCAR '(LAMBDA (X) 
+		  (PLNR-ORIFY (MAPCAR #'(LAMBDA (X) 
 					       (EXPAND (SUBST X
 							      '*OR*
 							      EXP)
@@ -1180,7 +1198,7 @@ APPROPRIATE RECOMMENDATION USING
 (DEFUN ERQSET (X) 
        ;;USED BY EXPAND TO MAKE SURE IT ISN"T GETTING CONFUSED BY TOO
        ;;MANY CONNECTIVES AND QUANTIFIERS IN THE SAME EXPRESSION
-       (COND (QUANTIFIER (GLOBAL-ERR '(I CAN"T
+       (COND (QUANTIFIER (GLOBAL-ERR '(I CAN\"T
 					 HANDLE
 					 COMBINATIONS
 					 OF
@@ -1219,7 +1237,7 @@ APPROPRIATE RECOMMENDATION USING
 						 (LIST %NAME)))))))
 	UP   (COND ((EQ %X '?)
 		    (PRINT %CHECKLIST)
-		    (SETQ %X (ERT foo: setqqcheck ????))
+		    (SETQ %X (ERT foo\: setqqcheck ????))
 		    (GO UP))
 								       ;A QUESTION MARK GETS THE LIST OF POSSIBILITIES
 		       ;PRINTED OUT, THEN LETS YOU TRY AGAIN.  TO DO
@@ -1232,34 +1250,36 @@ APPROPRIATE RECOMMENDATION USING
 ;;;============================================================
 
 (DEFUN THVAL2 (WHO AA) 
+       (DECLARE (SPECIAL WHO))
        (PROG (RESULT X mplnr-ttime m-gc) 
 	     (SETQ THLEVEL '(T))
 	     (SETQ X (SETQ RESULT '(NIL)))
 	     (AND PLANNERSEE
-		  (DISP AA)
+		  (OR (TERPRI) (TERPRI) T)
+		  (WRITE AA)
+		  (OR (TERPRI) T)
 		  PLNRSEE-PAUSE
 		  (ERT FOR PLANNER))
-(and (not (eq result x))
-     (return result))
-(setq mplnr-ttime (runtime) m-gc (status gctime) )
-(setq result (thval aa '((ev command)) ))
-(setq mplnr-time (timer mplnr-ttime (runtime)))
-(or (= m-gc (status gctime))
-    (setq mplnr-time (difference mplnr-time (timer m-gc (status gctime)))
-          gc (status gctime)) )
-(return result)
-)) 
+	     (SETQ MPLNR-TTIME (GET-INTERNAL-RUN-TIME) M-GC 0.)
+	     (SETQ RESULT (COND (BYPASS-PLANNER (ERT ENTER PLANNER RESULT))
+	                        (T (THVAL AA '((EV COMMAND)) ))))
+	     (SETQ MPLNR-TIME (TIMER MPLNR-TTIME (GET-INTERNAL-RUN-TIME)))
+	     (OR (= M-GC 0.)
+		 (SETQ MPLNR-TIME (- MPLNR-TIME (TIMER M-GC 0.))
+         	 GC 0.))
+	     (RETURN RESULT))) 
 
 ;;;============================================================
 
 (DEFUN WHO (X) 
        (COND ((NULL WHO))
 	     ((ATOM X))
-	     ((NOT (SETQ X (GET X 'WHO))) NIL)
+	     ((NOT (SETQ X (GETF (CDR X) 'WHO))) NIL)
 	     ((EQ WHO 'HE))
-	     ((LESSP (CAR WHO) X LASTSENTNO)))) 
+	     ((< (CAR WHO) X LASTSENTNO)))) 
 
 (DEFUN CHECK (NEW-MARKERS MARKERS SYSTEMS) 
+       (DECLARE (SPECIAL MARKERS SYSTEMS))
 
        ;;;
        ;; TAKES A LIST OF NEW MARKERS AND CHECKS FOR COMPATIBILITY
@@ -1306,7 +1326,7 @@ APPROPRIATE RECOMMENDATION USING
 
 (DEFUN FINDEVENTS (RSS) 
        ;;FINDS ALL THE EVENTS FITTING THE RSS DESCRIPTION
-       (PUTPROP (VARIABLE? RSS) T 'USED)
+       (SETF (GET (VARIABLE? RSS) 'USED) T)
        (THVAL2 NIL
 	       (PLNR-FINDIFY 'ALL
 			     (VARIABLE? RSS)
@@ -1324,10 +1344,9 @@ APPROPRIATE RECOMMENDATION USING
 	     ((RSS? OSS)
 								       ;FIRST ELEMENT IS THE REAL RELATIVE. IT USES
 	      (MAPCAN 
-	       '(LAMBDA (RELATION) 
+	       #'(LAMBDA (RELATION) 
 								       ;THIS FACT TO CHEAT ON RECURSION BY USING
 			(COND ((ATOM RELATION) NIL)
 								       ;MAPCAN.
 			      ((MAPCAN 'CHECKREL RELATION))))
 	       (RELATIONS? OSS))))) 
-

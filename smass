@@ -1,4 +1,4 @@
-(declare (genprefix smass))
+; (declare (genprefix smass))
 
 ;;;################################################################
 ;;;
@@ -133,4 +133,3 @@
  (X)   (GET X 'VARIABLE=)) 
 
 (DEFUN SMSET (X) (SETR 'SEMANTICS X C) (SETQ SM X)) 
-

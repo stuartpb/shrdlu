@@ -1,4 +1,4 @@
-(declare (genprefix setup))
+; (declare (genprefix setup))
 
 ;;;################################################################
 ;;;
@@ -48,14 +48,14 @@
       ALTMODE
       (LIST (ASCII 27.))
       BREAKCHARS
-      (LIST (ASCII 32.) (ASCII 13.) (ASCII 46.))
+      (LIST #\Space #\Newline)
       LINEL
       65.
       =LINE
       '========================================================) 
 
-(OR (GET 'CLAUSE 'SUBR)
-    (LABELTRACE CLAUSE NG VG ADJG PREPG CONJOIN)) 
+;(OR (GET 'CLAUSE 'SUBR)
+;    (LABELTRACE CLAUSE NG VG ADJG PREPG CONJOIN)) 
 
 ;;*PAGE
 
@@ -138,6 +138,8 @@
       NIL
       NOSTOP
       NIL
+      NEVERSTOP
+      NIL
       ANSWER?
       T
       SMN
@@ -157,15 +159,17 @@
       PNS-BK
       NIL
       PLNRSEE-PAUSE
+      NIL
+      BYPASS-PLANNER
       NIL) 
 
 ;;;***********************************
 
 (DEFUN QUIETMODE NIL 
-       (MAPC '(LAMBDA (X) (SET X NIL)) DISPLAYSWITCHES)) 
+       (MAPC #'(LAMBDA (X) (SET X NIL)) DISPLAYSWITCHES)) 
 
 (DEFUN NOPAUSES NIL 
-       (MAPC '(LAMBDA (X) (SET X NIL)) PAUSESWITCHES)) 
+       (MAPC #'(LAMBDA (X) (SET X NIL)) PAUSESWITCHES)) 
 
 (DEFUN NORMALFEATUREMODE NIL 
        (SETQ MOBYREAD NIL DISCOURSE T NOMEM NIL IASUME T TIMID 200.)) 
@@ -176,17 +180,21 @@
        (NOPAUSES)
        (SETQ NOSTOP
 	     T
+	     NEVERSTOP
+	     T
+	     ANNOYANCE
+	     T
 	     ANSWER?
 	     T
+	     SH-STANDARD-PRINTOUT
+	     NIL
 	     SMN
 	     NIL
 	     TOPLEVEL-ERRSET?
 	     T
 	     ERT-ERRSET
 	     T)
-       (SETQ *RSET NIL)
-       (IOC C)
-       (SETQ SH-PRINT-TIME T)) 
+       (SETQ *RSET NIL))
 
 (DEFUN DEBUGMODE NIL 
        (QUIETMODE)
@@ -194,16 +202,21 @@
        (NOPAUSES)
        (SETQ NOSTOP
 	     NIL
+	     NEVERSTOP
+	     NIL
 	     ANSWER?
 	     T
 	     SMN
 	     NIL
+	     PLANNERSEE
+	     'ALL
+	     PARSETRACE
+	     'ALL
 	     TOPLEVEL-ERRSET?
 	     NIL
 	     ERT-ERRSET
 	     T)
        (SETQ *RSET T)
-       (IOC D)
 ) 
 
 (SETQ ZOG-USER NIL ZOGUSER NIL) 
@@ -218,71 +231,37 @@
 ;;;           INITIALIZATION ROUTINES
 ;;;*****************************************************************
 
-(DEFUN INITIALSTUFF (version date note) 
-       (SUSPEND)
-       (CURSORPOS 'C)
-       (TERPRI)
-       (PRINC 'SHRDLU/ VERSION/ )
-       (princ version)
-       (princ '/ / / )
-       (PRINC 'LOADED/ )
-       (PRINC date )
-       (princ '/ )
-       (PRINC 'IN/ BLISP/ )
-       (princ (status lispversion))
-       (TERPRI)
-       (SAY REFER COMMENTS AND QUESTIONS TO DDM)
+(DEFUN INITIALSTUFF (version note) 
        (TERPRI)
        (TERPRI)
-(and note (progn (terpri)(apply 'say note)
-            (terpri)(terpri)))
-;;;       (SAY -IF YOU ARE NEAR A DEC-340)
-;;;       (TERPRI)
-;;;       (PRINC '/ / / / / )
-;;;       (OR (AND (INTEROGATE DO YOU WANT THE DISPLAY /(TYPE "Y/ " OR "N/ "/))
-;;;		(SETQ WANT-DISPLAY T))
-;;;	   (SETQ WANT-DISPLAY NIL))
-;;;       (COND ((NOT WANT-DISPLAY) (NO340)))
-;;;       (COND ((EQ WANT-DISPLAY T)
-;;;	      (UREAD GRAPHF INIT DSK RBRN)
-;;;	      (IOC Q)
-;;;	      (PROG (D V) 
-;;;		    (SETQ D '((NIL)))
-;;;	       MORE (COND ((NOT (EQ D (SETQ V (READ D))))
-;;;			   (EVAL V)
-;;;			   (GO MORE)))))
-;;;	     (T (SETQ PH-TURN-ON
-;;;		      NIL
-;;;		      GP-LINES
-;;;		      NIL
-;;;		      GP-SURFACE
-;;;		      NIL
-;;;		      GP-HANDIT
-;;;		      NIL
-;;;		      GP-NEWOBLOCAT
-;;;		      NIL
-;;;		      PH-BLOCKS
-;;;		      NIL)
-;;;		(GP-INITIAL)))
-;;;       (TERPRI)
-       (SAY YOU ARE NOW IN A READ-EVAL-PRINT LOOP)
+       (SAY "SHRDLU version ")
+       (PRINC VERSION)
        (TERPRI)
-       (SAY TYPE "GO/ " TO ENTER READY STATE)
-       (CATCH (ERT) ABORT-PARSER)
-       (sstatus toplevel '(shrdlu))
+       (SAY "Loaded ")
+       (PRINC (NTH-VALUE 4 (GET-DECODED-TIME)))
+       (PRINC '/)
+       (PRINC (NTH-VALUE 3 (GET-DECODED-TIME)))
+       (PRINC '/)
+       (PRINC (NTH-VALUE 5 (GET-DECODED-TIME)))
+       (PRINC '\ )
+       (SAY "in ")
+       (PRINC (LISP-IMPLEMENTATION-TYPE))
+       (PRINC '\ )
+       (PRINC (LISP-IMPLEMENTATION-VERSION))
+       (TERPRI)
+       (TERPRI)
+       (AND NOTE (PROGN (TERPRI)(APPLY-SAY NOTE)
+            (TERPRI)(TERPRI)))
+       (OR NEVERSTOP
+         (PROG NIL
+           (SAY "You are now in a read-eval-print loop.")
+           (TERPRI)
+           (SAY "Type \"go\" to enter ready state.")))
+       (CATCH 'ABORT-PARSER (ERT))
        (SHRDLU)) 
 
 (DEBUGMODE) 
 
-(setq sh-standard-printout t smnbreak nil smntrace nil makintern t annoyance nil)
+(setq sh-standard-printout t smnbreak nil smntrace nil annoyance nil)
 
-(SSTATUS PAGEPAUSE T) 
-
-(IOC D) 
 (setq errlist nil)
-
-(SETQ Z (status tty) w1 (car z) w2 (cadr z))
-(setq w1 (boole 7 w1 020202020202)
-      w2 (boole 7 w2 020202020202) )
-(sstatus tty w1 w2)
-
